@@ -568,6 +568,11 @@ Estrutura obrigatória:
         ultimo_webdoc["tecnologia"] = None
         ultimo_webdoc["assunto"] = assunto
 
+        salvar = input("\nDeseja salvar este lab? (s/n): ").strip().lower()
+
+        if salvar == "s":
+            salvar_lab_arquivo(assunto, resposta)
+
     else:
         caminho_encontrado, conteudo_base = buscar_na_base(pergunta)
 
