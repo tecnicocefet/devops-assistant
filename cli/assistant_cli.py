@@ -4,7 +4,11 @@ from modules.doc_reader.reader import ler_arquivo, buscar_na_base, buscar_doc_em
 from modules.official_docs.online_reader import buscar_doc_online
 from modules.man_reader.reader import ler_man_page
 from modules.lab_generator.generator import gerar_lab, montar_prompt_lab
-from modules.code_analyzer.analyzer import ler_codigo, montar_prompt_analise
+from modules.code_analyzer.analyzer import (
+    ler_codigo,
+    montar_prompt_analise,
+    montar_prompt_correcao
+)
 
 
 print("DevOps Assistant iniciado")
@@ -572,7 +576,6 @@ Estrutura obrigatória:
         ultimo_webdoc["assunto"] = assunto
 
         salvar = input("\nDeseja salvar este lab? (s/n): ").strip().lower()
-
         if salvar == "s":
             salvar_lab_arquivo(assunto, resposta)
 
@@ -592,6 +595,25 @@ Estrutura obrigatória:
         print(f"\n[Analisando arquivo: {caminho_arquivo}]\n")
 
         mensagens = montar_prompt_analise(caminho_arquivo, conteudo_codigo)
+
+        gerar_resposta(modelo, mensagens)
+
+    elif pergunta.lower().startswith("corrigir:"):
+        caminho_arquivo = pergunta.replace("corrigir:", "").strip()
+
+        if not caminho_arquivo:
+            print("Informe o caminho do arquivo. Exemplo: corrigir:analysis/teste.sh")
+            continue
+
+        conteudo_codigo, erro = ler_codigo(caminho_arquivo)
+
+        if erro:
+            print(erro)
+            continue
+
+        print(f"\n[Corrigindo arquivo: {caminho_arquivo}]\n")
+
+        mensagens = montar_prompt_correcao(caminho_arquivo, conteudo_codigo)
 
         gerar_resposta(modelo, mensagens)
 
