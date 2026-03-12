@@ -138,7 +138,7 @@ Em sistemas que utilizam **SELinux**, a opção `-Z` define o contexto de segura
 
 mkdir -Z DiretorioSELinux
 
-*(Esta opção funciona corretamente apenas se o SELinux estiver ativo.)*
+> Esta opção funciona corretamente apenas se o SELinux estiver ativo.
 
 ---
 
@@ -161,16 +161,12 @@ devops
   └── volumes  
     └── logs  
 
-Dica: utilize a opção `-p`.
+### Dica
 
----
+Utilize a opção `-p`.
 
-## Resultado esperado
+## Resumo
 
-Ao final deste laboratório você terá aprendido:
-
-- Como criar diretórios simples com `mkdir`
-- Como criar múltiplos diretórios ao mesmo tempo
 - Como criar estruturas de diretórios aninhadas
 - Como usar opções importantes como `-p`, `-v`, `-m`, `-Z` e `-i`
 
