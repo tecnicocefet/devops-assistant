@@ -3,6 +3,7 @@ import ollama
 from modules.doc_reader.reader import ler_arquivo, buscar_na_base, buscar_doc_em_data
 from modules.official_docs.online_reader import buscar_doc_online
 from modules.man_reader.reader import ler_man_page
+from modules.lab_generator.generator import gerar_lab, montar_prompt_lab
 
 
 print("DevOps Assistant iniciado")
@@ -439,6 +440,44 @@ Estrutura obrigatória:
 
         except Exception as erro:
             print(f"Erro ao salvar base: {erro}")
+    
+    elif pergunta.lower().startswith("lab:"):
+        assunto = pergunta.replace("lab:", "").strip()
+
+        if not assunto:
+            print("Informe um assunto para gerar o lab. Exemplo: lab:linux/mkdir")
+            continue
+
+        resultado_lab = gerar_lab(
+            assunto,
+            buscar_na_base,
+            buscar_doc_em_data
+        )
+
+        fonte_tipo = resultado_lab["fonte_tipo"]
+        fonte_caminho = resultado_lab["fonte_caminho"]
+        contexto = resultado_lab["conteudo"]
+
+        if fonte_caminho:
+            print(f"\n[Gerando lab com base em: {fonte_caminho}]\n")
+        else:
+            print("\n[Gerando lab com base no assunto informado]\n")
+
+        mensagens = montar_prompt_lab(
+            assunto=assunto,
+            contexto=contexto,
+            fonte_tipo=fonte_tipo,
+            fonte_caminho=fonte_caminho
+        )
+
+        resposta = gerar_resposta(modelo, mensagens)
+
+        ultimo_webdoc["resposta"] = resposta
+        ultimo_webdoc["url"] = fonte_caminho if fonte_caminho else f"lab:{assunto}"
+        ultimo_webdoc["conteudo"] = contexto
+        ultimo_webdoc["tecnologia"] = None
+        ultimo_webdoc["assunto"] = assunto
+
 
     else:
         caminho_encontrado, conteudo_base = buscar_na_base(pergunta)
