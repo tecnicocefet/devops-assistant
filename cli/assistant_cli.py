@@ -4,6 +4,7 @@ from modules.doc_reader.reader import ler_arquivo, buscar_na_base, buscar_doc_em
 from modules.official_docs.online_reader import buscar_doc_online
 from modules.man_reader.reader import ler_man_page
 from modules.lab_generator.generator import gerar_lab, montar_prompt_lab
+from modules.code_analyzer.analyzer import ler_codigo, montar_prompt_analise
 
 
 print("DevOps Assistant iniciado")
@@ -33,6 +34,7 @@ else:
 
 print(f"\nUsando modelo: {modelo}")
 print("Digite sua pergunta ou 'sair' para encerrar")
+print("Para analisar código ou configuração. Exemplo: analisar:./Dockerfile")
 print("Para ler documentação local. Exemplo: doc:linux/mkdir")
 print("Para melhorar uma doc local. Exemplo: melhorar doc:linux/mkdir")
 print("Para consultar documentação oficial. Exemplo: webdoc:git/clone")
@@ -41,6 +43,7 @@ print("Para refazer a última explicação oficial: refazer")
 print("Para salvar na base. Exemplo: salvar base:git/clone")
 print("Para gerar um lab. Exemplo: lab:linux/mkdir")
 print("Para listar labs salvos: lab:list\n")
+
 
 mapa_docs = {
     "linux": "linux_docs",
@@ -572,6 +575,25 @@ Estrutura obrigatória:
 
         if salvar == "s":
             salvar_lab_arquivo(assunto, resposta)
+
+    elif pergunta.lower().startswith("analisar:"):
+        caminho_arquivo = pergunta.replace("analisar:", "").strip()
+
+        if not caminho_arquivo:
+            print("Informe o caminho do arquivo. Exemplo: analisar:./Dockerfile")
+            continue
+
+        conteudo_codigo, erro = ler_codigo(caminho_arquivo)
+
+        if erro:
+            print(erro)
+            continue
+
+        print(f"\n[Analisando arquivo: {caminho_arquivo}]\n")
+
+        mensagens = montar_prompt_analise(caminho_arquivo, conteudo_codigo)
+
+        gerar_resposta(modelo, mensagens)
 
     else:
         caminho_encontrado, conteudo_base = buscar_na_base(pergunta)
