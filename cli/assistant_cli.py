@@ -33,10 +33,14 @@ else:
 
 print(f"\nUsando modelo: {modelo}")
 print("Digite sua pergunta ou 'sair' para encerrar")
-print("Para ler documentação local. Exemplo doc:linux/mkdir")
+print("Para ler documentação local. Exemplo: doc:linux/mkdir")
+print("Para melhorar uma doc local. Exemplo: melhorar doc:linux/mkdir")
 print("Para consultar documentação oficial. Exemplo: webdoc:git/clone")
+print("Para consultar man page. Exemplo: man:mkdir")
 print("Para refazer a última explicação oficial: refazer")
-print("Para salvar na base: salvar base. Exemplo: salvar base:git/clone\n")
+print("Para salvar na base. Exemplo: salvar base:git/clone")
+print("Para gerar um lab. Exemplo: lab:linux/mkdir")
+print("Para listar labs salvos: lab:list\n")
 
 mapa_docs = {
     "linux": "linux_docs",
@@ -70,7 +74,7 @@ def gerar_resposta(modelo_escolhido, mensagens):
             stream=True,
             options={
                 "temperature": 0.2,
-                "num_predict": 1000
+                "num_predict": 2500
             }
         )
 
@@ -163,6 +167,47 @@ Documentação oficial:
         }
     ]
 
+
+def salvar_lab_arquivo(assunto, conteudo_lab):
+    partes = assunto.split("/", 1)
+
+    if len(partes) == 2:
+        tecnologia, nome_lab = partes
+        tecnologia = tecnologia.strip().lower()
+        nome_lab = nome_lab.strip().lower()
+    else:
+        tecnologia = "geral"
+        nome_lab = assunto.strip().lower().replace(" ", "-")
+
+    pasta_destino = f"labs/{tecnologia}"
+    os.makedirs(pasta_destino, exist_ok=True)
+
+    arquivo_destino = f"{pasta_destino}/{nome_lab}.md"
+
+    if os.path.exists(arquivo_destino):
+
+        print(f"\nO lab {arquivo_destino} já existe.\n")
+        print("1 - Sobrescrever")
+        print("2 - Salvar com outro nome")
+        print("3 - Cancelar")
+
+        escolha = input("\nEscolha uma opção: ").strip()
+
+        if escolha == "1":
+            pass
+
+        elif escolha == "2":
+            novo_nome = input("Digite o novo nome do lab (sem .md): ").strip().lower()
+            arquivo_destino = f"{pasta_destino}/{novo_nome}.md"
+
+        else:
+            print("Operação cancelada.")
+            return
+
+    with open(arquivo_destino, "w", encoding="utf-8") as f:
+        f.write(conteudo_lab)
+
+    print(f"\nLab salvo em: {arquivo_destino}\n")
 
 while True:
     pergunta = input("> ").strip()
@@ -440,6 +485,45 @@ Estrutura obrigatória:
 
         except Exception as erro:
             print(f"Erro ao salvar base: {erro}")
+
+    elif pergunta.lower() == "lab:list":
+        pasta_labs = "labs"
+
+        if not os.path.exists(pasta_labs):
+            print("Nenhum lab encontrado.")
+            continue
+
+        print("\nLABS DISPONÍVEIS\n")
+
+        contador = 1
+        mapa_labs = {}
+
+        for tecnologia in sorted(os.listdir(pasta_labs)):
+            caminho_tecnologia = os.path.join(pasta_labs, tecnologia)
+
+            if not os.path.isdir(caminho_tecnologia):
+                continue
+
+            print(tecnologia)
+
+            for arquivo in sorted(os.listdir(caminho_tecnologia)):
+                if arquivo.endswith(".md"):
+                    nome_lab = arquivo.replace(".md", "")
+                    print(f"  {contador} - {nome_lab}")
+
+                    mapa_labs[str(contador)] = f"{tecnologia}/{nome_lab}"
+                    contador += 1
+
+        escolha = input("\nDigite o número do lab para abrir ou pressione Enter para sair: ").strip()
+
+        if escolha in mapa_labs:
+            tecnologia, nome_lab = mapa_labs[escolha].split("/")
+            caminho = f"labs/{tecnologia}/{nome_lab}.md"
+
+            conteudo = ler_arquivo(caminho)
+
+            print(f"\n[Lab encontrado: {caminho}]\n")
+            print(conteudo)
     
     elif pergunta.lower().startswith("lab:"):
         assunto = pergunta.replace("lab:", "").strip()
@@ -462,7 +546,13 @@ Estrutura obrigatória:
             print(f"\n[Gerando lab com base em: {fonte_caminho}]\n")
         else:
             print("\n[Gerando lab com base no assunto informado]\n")
+        
+        print("Fonte usada:")
+        print(f"Tipo: {fonte_tipo}")
 
+        if fonte_caminho:
+            print(f"Caminho: {fonte_caminho}")
+        
         mensagens = montar_prompt_lab(
             assunto=assunto,
             contexto=contexto,
@@ -477,7 +567,6 @@ Estrutura obrigatória:
         ultimo_webdoc["conteudo"] = contexto
         ultimo_webdoc["tecnologia"] = None
         ultimo_webdoc["assunto"] = assunto
-
 
     else:
         caminho_encontrado, conteudo_base = buscar_na_base(pergunta)
