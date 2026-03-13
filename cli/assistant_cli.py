@@ -36,17 +36,22 @@ else:
     print("Modelo inválido, usando deepseek padrão")
     modelo = "deepseek-coder:6.7b"
 
-print(f"\nUsando modelo: {modelo}")
-print("Digite sua pergunta ou 'sair' para encerrar")
-print("Para analisar código ou configuração. Exemplo: analisar:./Dockerfile")
-print("Para ler documentação local. Exemplo: doc:linux/mkdir")
-print("Para melhorar uma doc local. Exemplo: melhorar doc:linux/mkdir")
-print("Para consultar documentação oficial. Exemplo: webdoc:git/clone")
-print("Para consultar man page. Exemplo: man:mkdir")
-print("Para refazer a última explicação oficial: refazer")
-print("Para salvar na base. Exemplo: salvar base:git/clone")
-print("Para gerar um lab. Exemplo: lab:linux/mkdir")
-print("Para listar labs salvos: lab:list\n")
+print(f"\nUsando modelo: {modelo}\n")
+
+print("Comandos disponíveis:\n")
+
+print("analisar:analysis/arquivo     → analisar código ou configuração")
+print("corrigir:analysis/arquivo     → corrigir código ou configuração")
+print("doc:linux/comando             → ler documentação local")
+print("melhorar doc:linux/comando    → melhorar documentação local")
+print("webdoc:git/comando            → consultar documentação oficial")
+print("man:comando                   → consultar man page")
+print("refazer                       → refazer última explicação oficial")
+print("salvar base:topico            → salvar conteúdo na knowledge-base")
+print("lab:linux/comando             → gerar laboratório prático")
+print("lab:list                      → listar labs salvos\n")
+
+print("Digite sua pergunta ou 'sair' para encerrar\n")
 
 
 mapa_docs = {
