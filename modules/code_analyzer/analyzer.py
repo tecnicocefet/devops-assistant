@@ -87,17 +87,6 @@ Importante:
 - Não cite "Clean Code" de forma genérica.
 - Só aponte problemas que realmente aparecem no conteúdo do arquivo.
 - Prefira problemas técnicos concretos e verificáveis.
-Importante:
-- Não invente problemas.
-- Não cite "falta de comentários" como problema grave em scripts muito pequenos.
-- Não cite "Clean Code" de forma genérica.
-- Só aponte problemas que realmente aparecem no conteúdo do arquivo.
-- Prefira problemas técnicos concretos e verificáveis.usência de tratamento de erros
-- ausência de validação de arquivos, diretórios, variáveis ou parâmetros
-- falta de previsibilidade na execução
-- comandos potencialmente perigosos sem proteção
-- baixa clareza
-- ausência de boas práticas do tipo de arquivo analisado
 
 Regras obrigatórias de escrita:
 - Não repita problemas.

@@ -252,7 +252,7 @@ while True:
                     print("Tecnologia não encontrada. Use: linux, git, docker, terraform, kubernetes ou aws.")
                     continue
 
-                base = f"data/{mapa_docs[tecnologia]}/{arquivo}"
+                base = os.path.join(DATA_DIR, mapa_docs[tecnologia], arquivo)
 
                 if os.path.exists(base + ".md"):
                     caminho_arquivo = base + ".md"
@@ -533,7 +533,7 @@ Estrutura obrigatória:
 
         if escolha in mapa_labs:
             tecnologia, nome_lab = mapa_labs[escolha].split("/")
-            caminho = f"labs/{tecnologia}/{nome_lab}.md"
+            caminho = os.path.join(LABS_DIR, tecnologia, f"{nome_lab}.md")
 
             conteudo = ler_arquivo(caminho)
 
