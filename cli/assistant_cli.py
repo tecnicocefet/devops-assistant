@@ -1,7 +1,7 @@
 import os
 import ollama
 
-from config.settings import DATA_DIR, LABS_DIR, KNOWLEDGE_BASE_DIR
+from config.settings import DATA_DIR, LABS_DIR, KNOWLEDGE_BASE_DIR, ANALYSIS_DIR
 
 from modules.doc_reader.reader import ler_arquivo, buscar_na_base, buscar_doc_em_data
 from modules.official_docs.online_reader import buscar_doc_online
@@ -43,8 +43,8 @@ print(f"\nUsando modelo: {modelo}\n")
 
 print("Comandos disponíveis:\n")
 
-print("analisar:analysis/arquivo     → analisar código ou configuração")
-print("corrigir:analysis/arquivo     → corrigir código ou configuração")
+print("analisar:arquivo              → analisar código ou configuração")
+print("corrigir:arquivo              → corrigir código ou configuração")
 print("doc:linux/comando             → ler documentação local")
 print("melhorar doc:linux/comando    → melhorar documentação local")
 print("webdoc:git/comando            → consultar documentação oficial")
@@ -591,8 +591,11 @@ Estrutura obrigatória:
         caminho_arquivo = pergunta.replace("analisar:", "").strip()
 
         if not caminho_arquivo:
-            print("Informe o caminho do arquivo. Exemplo: analisar:./Dockerfile")
+            print("Informe o caminho do arquivo. Exemplo: analisar:teste.sh")
             continue
+
+        if not os.path.isabs(caminho_arquivo):
+            caminho_arquivo = os.path.join(ANALYSIS_DIR, os.path.basename(caminho_arquivo))
 
         conteudo_codigo, erro = ler_codigo(caminho_arquivo)
 
@@ -610,8 +613,11 @@ Estrutura obrigatória:
         caminho_arquivo = pergunta.replace("corrigir:", "").strip()
 
         if not caminho_arquivo:
-            print("Informe o caminho do arquivo. Exemplo: corrigir:analysis/teste.sh")
+            print("Informe o caminho do arquivo. Exemplo: corrigir:teste.sh")
             continue
+
+        if not os.path.isabs(caminho_arquivo):
+            caminho_arquivo = os.path.join(ANALYSIS_DIR, os.path.basename(caminho_arquivo))
 
         conteudo_codigo, erro = ler_codigo(caminho_arquivo)
 
