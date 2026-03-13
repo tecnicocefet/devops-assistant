@@ -1,4 +1,5 @@
 import os
+import ollama
 
 
 def detectar_tipo_arquivo(caminho):
@@ -194,3 +195,157 @@ Conteúdo original:
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},
     ]
+
+
+def montar_prompt_analise_texto(nome_arquivo, conteudo):
+    tipo = detectar_tipo_arquivo(nome_arquivo)
+
+    if tipo == "bash":
+        contexto = "script Bash"
+    elif tipo == "docker":
+        contexto = "Dockerfile"
+    elif tipo == "yaml":
+        contexto = "arquivo YAML possivelmente usado em Kubernetes ou configuração"
+    elif tipo == "terraform":
+        contexto = "código Terraform (Infrastructure as Code)"
+    elif tipo == "config":
+        contexto = "arquivo de configuração de serviço"
+    else:
+        contexto = "arquivo de código ou configuração"
+
+    system_prompt = f"""Você é um engenheiro DevOps experiente e muito rigoroso na avaliação de qualidade.
+
+Analise o seguinte {contexto}.
+
+Responda em português do Brasil.
+
+Regras obrigatórias para dar nota:
+
+- Seja severo e realista.
+- Não dê nota alta apenas porque o código funciona.
+- Código simples, frágil ou sem tratamento de erro NÃO deve receber nota alta.
+- Se faltarem validações, tratamento de erros, segurança ou boas práticas, reduza a nota de forma clara.
+- Nota 10 é rara.
+- Nota acima de 8 só deve ser dada para código muito bem estruturado, seguro e próximo de uso em produção.
+- Scripts ou arquivos básicos, mesmo funcionando, normalmente devem ficar entre 4 e 6 se forem frágeis.
+- Sempre justifique as notas com base no conteúdo do arquivo.
+
+Critérios de avaliação:
+- Qualidade geral
+- Segurança
+- Boas práticas
+- Manutenibilidade
+
+Considere como problemas graves:
+- ausência de tratamento de erros
+- ausência de validação de arquivos, diretórios, variáveis ou parâmetros
+- falta de previsibilidade na execução
+- comandos potencialmente perigosos sem proteção
+- ausência de boas práticas importantes do tipo de arquivo analisado
+
+Importante:
+- Não invente problemas.
+- Não cite "falta de comentários" como problema grave em scripts muito pequenos.
+- Não cite "Clean Code" de forma genérica.
+- Só aponte problemas que realmente aparecem no conteúdo do arquivo.
+- Prefira problemas técnicos concretos e verificáveis.
+
+Regras obrigatórias de escrita:
+- Não repita problemas.
+- Cada problema deve aparecer uma única vez.
+- Liste no máximo 6 problemas mais importantes.
+- Seja direto e objetivo.
+- Não invente problemas irrelevantes.
+- Se houver poucos problemas, liste apenas os que realmente existirem.
+
+Estrutura obrigatória da resposta:
+
+## Problemas encontrados
+
+Liste primeiro todos os problemas reais do arquivo.
+
+## Score de qualidade
+
+Com base nos problemas listados acima, dê as notas:
+
+- Qualidade geral: X/10
+- Segurança: X/10
+- Boas práticas: X/10
+- Manutenibilidade: X/10
+
+## Justificativa das notas
+
+Explique de forma objetiva por que cada nota foi dada.
+
+## O que este arquivo faz
+
+Explique de forma simples o que o código ou configuração faz.
+
+## Possíveis problemas ou riscos
+
+Liste problemas reais se existirem.
+
+## Boas práticas que estão faltando
+
+Liste melhorias recomendadas.
+
+## Sugestões de melhoria
+
+Sugira como melhorar o código.
+"""
+
+    user_prompt = f"""
+Arquivo analisado: {nome_arquivo}
+
+Conteúdo do arquivo:
+
+{conteudo}
+"""
+
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
+
+def analisar_texto(modelo, nome_arquivo, conteudo):
+    if not conteudo or not conteudo.strip():
+        return None, "Conteúdo vazio."
+
+    try:
+        mensagens = montar_prompt_analise_texto(nome_arquivo, conteudo)
+
+        resposta = ollama.chat(
+            model=modelo,
+            messages=mensagens
+        )
+
+        return resposta["message"]["content"], None
+
+    except Exception as e:
+        return None, f"Erro ao analisar conteúdo: {e}"
+    
+def analisar_texto_stream(modelo, nome_arquivo, conteudo):
+    if not conteudo or not conteudo.strip():
+        yield "Conteúdo vazio."
+        return
+
+    try:
+        mensagens = montar_prompt_analise_texto(nome_arquivo, conteudo)
+
+        stream = ollama.chat(
+            model=modelo,
+            messages=mensagens,
+            stream=True,
+            options={
+                "temperature": 0.2,
+                "num_predict": 2500
+            }
+        )
+
+        for chunk in stream:
+            if "message" in chunk and "content" in chunk["message"]:
+                yield chunk["message"]["content"]
+
+    except Exception as e:
+        yield f"Erro ao analisar conteúdo: {e}"

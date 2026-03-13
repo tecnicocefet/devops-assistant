@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page">
+    <h1>Code Analyzer</h1>
+
+    <form id="analyzer-form">
+        <textarea
+            id="code"
+            name="code"
+            rows="12"
+            placeholder="Cole seu código aqui"
+            style="width: 100%;"
+        ></textarea>
+
+        <div style="margin-top: 12px;">
+            <button type="submit">Analisar</button>
+        </div>
+    </form>
+
+    <div id="status" style="display: none; margin-top: 12px;">
+        Requisição recebida. Analisando...
+    </div>
+
+    <div id="chat-box" class="chat-box" style="margin-top: 20px;"></div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById("analyzer-form");
+    const chatBox = document.getElementById("chat-box");
+    const statusEl = document.getElementById("status");
+    const codeEl = document.getElementById("code");
+
+    function createMessage(role, title) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "message " + role;
+
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+
+        const strong = document.createElement("strong");
+        strong.textContent = title;
+
+        const pre = document.createElement("pre");
+
+        bubble.appendChild(strong);
+        bubble.appendChild(document.createElement("br"));
+        bubble.appendChild(pre);
+        wrapper.appendChild(bubble);
+
+        return { wrapper, pre };
+    }
+
+    form.addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const code = codeEl.value;
+
+        if (!code.trim()) {
+            return;
+        }
+
+        statusEl.style.display = "block";
+
+        const userMsg = createMessage("user", "Você:");
+        userMsg.pre.textContent = code;
+        chatBox.appendChild(userMsg.wrapper);
+
+        const botMsg = createMessage("bot", "Analyzer:");
+        chatBox.appendChild(botMsg.wrapper);
+
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        try {
+            const response = await fetch("/analyzer/run", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: new URLSearchParams({ code })
+            });
+
+            if (!response.ok) {
+                botMsg.pre.textContent = "Erro HTTP: " + response.status;
+                return;
+            }
+
+            if (!response.body) {
+                botMsg.pre.textContent = "Erro: resposta sem stream.";
+                return;
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                botMsg.pre.textContent += decoder.decode(value, { stream: true });
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        } catch (error) {
+            botMsg.pre.textContent = "Erro ao enviar requisição: " + error;
+        } finally {
+            statusEl.style.display = "none";
+        }
+    });
+});
+</script>
+{% endblock %}

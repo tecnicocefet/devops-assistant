@@ -11,45 +11,51 @@ Um ambiente Linux configurado para este laboratório.
 Você está na sua máquina local, no terminal do Linux. Você deseja criar um diretório chamado "Projetos".
 
 ### Passos
-1. Digite o seguinte comando: `mkdir Projetos` e pressione Enter.
-2. Verifique se a pasta foi criada digitando `ls` e pressionando Enter. Você deve ver a lista atualizada incluindo "Projetos".
+1. Digite o seguinte comando: `mkdir Projetos`
+2. Pressione Enter para executar o comando.
+
+Você deve ver uma mensagem indicando que o diretório foi criado com sucesso.
 
 ### Desafio extra
-Crie um diretório chamado "Documentos" dentro do seu diretório atual.
+Crie um novo diretório chamado "Documentos" dentro do atual.
 
 ## LAB INTERMEDIÁRIO
 ### Objetivo
-Neste laboratório, você aprenderá a criar vários diretórios de uma vez e entenderá como usar o parâmetro -p para criar pastas intermediárias automaticamente.
+Neste laboratório, você aprenderá a criar vários diretórios de uma vez e entenderá como usar o parâmetro -p para criar pastas intermediárias.
 
 ### Pré-requisitos
-Você deve ter um ambiente Linux configurado para este laboratório.
+O LAB BÁSICO concluído com sucesso.
 
 ### Cenário
-Você está na sua máquina local, no terminal do Linux e deseja criar duas pastas chamadas "Pasta1" e "Pasta2".
+Você está na raiz do sistema de arquivos e deseja criar duas pastas: "Pasta1" e "Pasta2".
 
 ### Passos
-1. Digite o seguinte comando: `mkdir Pasta1 Pasta2` e pressione Enter.
-2. Verifique se as pastas foram criadas digitando `ls` e pressionando Enter. Você deve ver a lista atualizada incluindo "Pasta1" e "Pasta2".
+1. Digite o seguinte comando: `mkdir Pasta1 Pasta2`
+2. Pressione Enter para executar o comando.
+
+Você deve ver mensagens indicando que as pastas foram criadas com sucesso.
 
 ### Desafio extra
-Crie uma estrutura de diretório com três níveis, como: Pasta1/Pasta2/Pasta3. Use o parâmetro -p para criar automaticamente as pastas intermediárias.
+Crie uma estrutura de diretório aninhada, como "Pasta1/Pasta2". Use o parâmetro -p para isso.
 
 ## LAB AVANÇADO
 ### Objetivo
-Neste laboratório avançado, você aprenderá a usar opções comuns do mkdir e entenderá como elas podem ser úteis para cenários de segurança.
+Neste laboratório avançado, você aprenderá a usar opções comuns do mkdir e entenderá como elas podem ser úteis em situações específicas.
 
 ### Pré-requisitos
-Você deve ter um ambiente Linux configurado para este laboratório.
+O LAB INTERMEDIÁRIO concluído com sucesso.
 
 ### Cenário
-Você está na sua máquina local, no terminal do Linux e deseja criar uma pasta chamada "Segredo". Você quer definir permissões especiais para essa pasta.
+Você está na raiz do sistema de arquivos e deseja criar uma pasta chamada "Documentos". Você também quer que essa pasta tenha permissões especiais para o usuário, grupo e outros.
 
 ### Passos
-1. Digite o seguinte comando: `mkdir -m 755 Segredo` e pressione Enter. O parâmetro "-m" define as permissões da pasta, neste caso, "755", que dá ao proprietário leitura, escrita e execução de permissões, enquanto dá leitura e execução para os membros do grupo e outros.
-2. Verifique as permissões da pasta "Segredo" digitando `ls -l` e pressionando Enter. A saída deve mostrar as permissões da pasta "Segredo".
+1. Digite o seguinte comando: `mkdir -m 750 Documentos`
+2. Pressione Enter para executar o comando.
+
+Você deve ver uma mensagem indicando que a pasta foi criada com sucesso. Use o comando `ls -ld Documentos` para confirmar as permissões da pasta.
 
 ### Desafio extra
-Crie uma pasta chamada "ArquivosPrivados", mas dessa vez, use a opção "-Z" para definir um contexto de segurança específico. Por exemplo, você pode usar o contexto "unconfined_u:object_r:user_home_t:s0".
+Crie um novo diretório chamado "Pasta3" e use a opção -p para criar uma subpasta dentro dele, como "Pasta3/Subpasta". Verifique se as permissões da pasta são corretas.
 
 ### Resultado esperado
-Você terá criado com sucesso pastas no seu sistema Linux e entendido como elas podem ser personalizadas para seus requisitos específicos.
+Você terá um novo diretório chamado "Documentos" na raiz do sistema com as permissões especificadas e uma estrutura de pastas aninhadas conforme o desafio extra.
