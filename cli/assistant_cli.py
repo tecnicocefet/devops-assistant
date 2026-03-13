@@ -1,5 +1,8 @@
 import os
 import ollama
+
+from config.settings import DATA_DIR, LABS_DIR, KNOWLEDGE_BASE_DIR
+
 from modules.doc_reader.reader import ler_arquivo, buscar_na_base, buscar_doc_em_data
 from modules.official_docs.online_reader import buscar_doc_online
 from modules.man_reader.reader import ler_man_page
@@ -191,7 +194,7 @@ def salvar_lab_arquivo(assunto, conteudo_lab):
         tecnologia = "geral"
         nome_lab = assunto.strip().lower().replace(" ", "-")
 
-    pasta_destino = f"labs/{tecnologia}"
+    pasta_destino = os.path.join(LABS_DIR, tecnologia)
     os.makedirs(pasta_destino, exist_ok=True)
 
     arquivo_destino = f"{pasta_destino}/{nome_lab}.md"
@@ -481,10 +484,10 @@ Estrutura obrigatória:
             tecnologia = tecnologia.strip().lower()
             assunto = assunto.strip().lower()
 
-            pasta_destino = f"knowledge-base/{tecnologia}/explanations"
+            pasta_destino = os.path.join(KNOWLEDGE_BASE_DIR, tecnologia, "explanations")
             os.makedirs(pasta_destino, exist_ok=True)
 
-            arquivo_destino = f"{pasta_destino}/{assunto}.md"
+            arquivo_destino = os.path.join(pasta_destino, f"{assunto}.md")
 
             with open(arquivo_destino, "w", encoding="utf-8") as f:
                 f.write(f"# {assunto}\n\n")
@@ -499,7 +502,7 @@ Estrutura obrigatória:
             print(f"Erro ao salvar base: {erro}")
 
     elif pergunta.lower() == "lab:list":
-        pasta_labs = "labs"
+        pasta_labs = LABS_DIR
 
         if not os.path.exists(pasta_labs):
             print("Nenhum lab encontrado.")
