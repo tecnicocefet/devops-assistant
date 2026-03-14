@@ -542,42 +542,104 @@ def _montar_resposta_validacao(modelo, nome_arquivo, conteudo, resultado_validac
     return resposta
 
 
+def _stream_resposta_validacao(modelo, nome_arquivo, conteudo, resultado_validacao):
+    tipo = detectar_tipo_arquivo(nome_arquivo)
+
+    if tipo == "generic":
+        tipo = detectar_tipo_por_conteudo(conteudo)
+
+    linguagem = _bloco_linguagem(tipo)
+
+    if resultado_validacao["ok"]:
+        yield (
+            "## Diagnóstico\n\n"
+            "O código passou na validação real.\n\n"
+            "## Código\n\n"
+            f"```{linguagem}\n{conteudo}\n```"
+        )
+        return
+
+    erros_reais = "\n".join(resultado_validacao.get("itens", []))
+
+    prompt = (
+        "Você é um assistente técnico de DevOps.\n\n"
+        "O validator real encontrou erros no código.\n"
+        "Sua tarefa é explicar esses erros em linguagem simples e mostrar o código corrigido completo.\n\n"
+        "Regras obrigatórias:\n"
+        "1. Explique em linguagem simples, para estudante iniciante.\n"
+        "2. NÃO mostre caminhos temporários, códigos internos ou mensagens cruas do validator.\n"
+        "3. NÃO mencione códigos como SC2154, caminhos /tmp, linha ou coluna.\n"
+        "4. Corrija apenas o necessário para resolver os erros reais.\n"
+        "5. NÃO altere a lógica do código além do necessário.\n"
+        "6. NÃO invente recursos, referências ou variáveis novas sem necessidade.\n"
+        "7. Preserve ao máximo a intenção original do código.\n"
+        "8. Responda em português.\n"
+        "9. Responda exatamente neste formato:\n\n"
+        "## Diagnóstico\n\n"
+        "<explicação simples e curta>\n\n"
+        "## Código corrigido\n\n"
+        f"```{linguagem}\n"
+        "<CÓDIGO COMPLETO CORRIGIDO>\n"
+        "```\n\n"
+        f"Tipo detectado: {tipo}\n"
+        f"Validator usado: {resultado_validacao['fonte']}\n\n"
+        f"Erros reais do validator:\n{erros_reais}\n\n"
+        f"Código original:\n```{linguagem}\n{conteudo}\n```"
+    )
+
+    gerou_saida = False
+
+    stream = ollama.chat(
+        model=modelo,
+        messages=[{"role": "user", "content": prompt}],
+        stream=True,
+        options={
+            "temperature": 0.1,
+            "num_predict": 1200,
+            "stop": [
+                "### Instruction:",
+                "### Response:",
+                "Instruction:",
+                "Response:",
+                "User:",
+                "Assistant:",
+            ],
+        },
+    )
+
+    for chunk in stream:
+        if "message" in chunk and "content" in chunk["message"]:
+            texto = chunk["message"]["content"]
+            if texto:
+                gerou_saida = True
+                yield texto
+
+    if not gerou_saida:
+        yield (
+            "## Diagnóstico\n\n"
+            "Encontrei erros no código, mas não consegui gerar a correção automática.\n\n"
+            "## Código corrigido\n\n"
+            "Não foi possível gerar a correção nesta etapa.\n"
+        )
+
+
 def analisar_texto(modelo, nome_arquivo, conteudo):
     if not conteudo or not conteudo.strip():
         return None, "Conteúdo vazio."
 
     try:
-        resultado_validacao = validar_codigo(nome_arquivo, conteudo)
+        partes = []
 
-        if resultado_validacao is not None:
-            resposta = _montar_resposta_validacao(
-                modelo,
-                nome_arquivo,
-                conteudo,
-                resultado_validacao,
-            )
-            return resposta, None
+        for chunk in analisar_texto_stream(modelo, nome_arquivo, conteudo):
+            if chunk:
+                partes.append(chunk)
 
-        mensagens = montar_prompt_analise_texto(nome_arquivo, conteudo)
+        resposta = "".join(partes).strip()
 
-        resposta = ollama.chat(
-            model=modelo,
-            messages=mensagens,
-            options={
-                "temperature": 0.1,
-                "num_predict": 1200,
-                "stop": [
-                    "### Instruction:",
-                    "### Response:",
-                    "Instruction:",
-                    "Response:",
-                    "User:",
-                    "Assistant:",
-                ],
-            },
-        )
+        if not resposta:
+            return None, "Nenhuma resposta foi gerada."
 
-        return resposta["message"]["content"], None
+        return resposta, None
 
     except Exception as exc:
         return None, f"Erro ao analisar conteúdo: {exc}"
@@ -593,20 +655,17 @@ def analisar_texto_stream(modelo, nome_arquivo, conteudo):
         print("DEBUG resultado_validacao =", resultado_validacao)
 
         if resultado_validacao is not None:
-            resposta_validacao = _montar_resposta_validacao(
+            print("DEBUG entrou no stream da validacao")
+
+            for chunk in _stream_resposta_validacao(
                 modelo,
                 nome_arquivo,
                 conteudo,
                 resultado_validacao,
-            )
+            ):
+                if chunk:
+                    yield chunk
 
-            if not resposta_validacao:
-                resposta_validacao = "Erro ao montar resposta da validação."
-
-            print("DEBUG entrou no return da validacao")
-            print("DEBUG resposta_validacao =", repr(resposta_validacao))
-
-            yield resposta_validacao + "\n"
             return
 
         mensagens = montar_prompt_analise_texto(nome_arquivo, conteudo)

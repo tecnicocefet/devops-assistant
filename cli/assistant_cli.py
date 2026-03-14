@@ -13,6 +13,7 @@ from modules.lab_generator.generator import (
 from modules.code_analyzer.analyzer import (
     ler_codigo,
     analisar_texto,
+    analisar_texto_stream,
     corrigir_texto_stream,
 )
 
@@ -606,14 +607,17 @@ def processar_analisar(pergunta, modelo):
 
     print(f"\n[Analisando arquivo: {caminho_arquivo}]\n")
 
-    resposta, erro = analisar_texto(modelo, caminho_arquivo, conteudo_codigo)
+    gerou_saida = False
 
-    if erro:
-        print(erro)
-        return
+    for chunk in analisar_texto_stream(modelo, caminho_arquivo, conteudo_codigo):
+        if not chunk:
+            continue
 
-    if resposta:
-        print(resposta)
+        print(chunk, end="", flush=True)
+        gerou_saida = True
+
+    if gerou_saida:
+        print()
     else:
         print("Nenhuma resposta foi gerada.")
 

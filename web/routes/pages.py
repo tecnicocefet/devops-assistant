@@ -7,12 +7,6 @@ from modules.lab_generator.generator import (
     gerar_lab_stream,
     salvar_lab_arquivo,
     listar_labs_salvos,
-)
-
-from modules.lab_generator.generator import (
-    gerar_lab_stream,
-    salvar_lab_arquivo,
-    listar_labs_salvos,
     ler_lab_salvo,
 )
 
@@ -42,38 +36,64 @@ def kb_page(request: Request):
 
 @router.post("/analyzer/run")
 def run_analyzer(code: str = Form(...)):
-
     def gerar_resposta():
-        stream = analisar_texto_stream("deepseek-coder:6.7b", "snippet.txt", code)
+        for chunk in analisar_texto_stream(
+            "deepseek-coder:6.7b",
+            "snippet.txt",
+            code,
+        ):
+            if chunk:
+                yield chunk
 
-        for chunk in stream:
-            yield chunk
-
-    return StreamingResponse(gerar_resposta(), media_type="text/plain; charset=utf-8")
+    return StreamingResponse(
+        gerar_resposta(),
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @router.post("/analyzer/fix")
 def fix_analyzer(code: str = Form(...)):
-
     def gerar_resposta():
-        stream = corrigir_texto_stream("deepseek-coder:6.7b", "snippet.txt", code)
+        for chunk in corrigir_texto_stream(
+            "deepseek-coder:6.7b",
+            "snippet.txt",
+            code,
+        ):
+            if chunk:
+                yield chunk
 
-        for chunk in stream:
-            yield chunk
-
-    return StreamingResponse(gerar_resposta(), media_type="text/plain; charset=utf-8")
+    return StreamingResponse(
+        gerar_resposta(),
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @router.post("/labs/run")
 def run_lab(assunto: str = Form(...)):
-
     def gerar_resposta():
-        stream = gerar_lab_stream(assunto, "deepseek-coder:6.7b")
+        for chunk in gerar_lab_stream(assunto, "deepseek-coder:6.7b"):
+            if chunk:
+                yield chunk
 
-        for chunk in stream:
-            yield chunk
-
-    return StreamingResponse(gerar_resposta(), media_type="text/plain; charset=utf-8")
+    return StreamingResponse(
+        gerar_resposta(),
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @router.post("/labs/save")

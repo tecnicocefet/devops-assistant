@@ -133,8 +133,35 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
-            const textoCompleto = await response.text();
-            botMsg.content.textContent = textoCompleto;
+            if (!response.body) {
+                botMsg.content.textContent = "Erro: resposta sem stream no navegador.";
+                return;
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+
+            let textoCompleto = "";
+
+            while (true) {
+                const { value, done } = await reader.read();
+
+                if (done) {
+                    break;
+                }
+
+                const chunk = decoder.decode(value, { stream: true });
+                textoCompleto += chunk;
+                botMsg.content.textContent = textoCompleto;
+
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+
+            const resto = decoder.decode();
+            if (resto) {
+                textoCompleto += resto;
+                botMsg.content.textContent = textoCompleto;
+            }
 
             const codigoExtraido = extrairCodigoCorrigido(textoCompleto);
 

@@ -58,7 +58,7 @@ def ler_man_page(comando):
         conteudo = limpar_man_page(conteudo)
 
         # limitar tamanho para não mandar a man page inteira para o modelo
-        conteudo = conteudo[:1200]
+        conteudo = conteudo[:4000]
 
         return conteudo, None
 
