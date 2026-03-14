@@ -7,9 +7,19 @@ def limpar_linhas(texto):
     linhas = []
 
     ignorar = {
-        "English", "Deutsch", "Español", "Français", "Íslenska",
-        "日本語", "Português (Brasil)", "Română", "Русский",
-        "Svenska", "українська мова", "简体中文", "Topics"
+        "English",
+        "Deutsch",
+        "Español",
+        "Français",
+        "Íslenska",
+        "日本語",
+        "Português (Brasil)",
+        "Română",
+        "Русский",
+        "Svenska",
+        "українська мова",
+        "简体中文",
+        "Topics",
     }
 
     for linha in texto.splitlines():
@@ -43,7 +53,7 @@ def remover_lixo_modelo(texto):
         "Como fazer isto",
         "forçar o Git",
         "```",
-        '"""'
+        '"""',
     ]
 
     linhas_filtradas = []
@@ -163,7 +173,7 @@ def extrair_doc_kubernetes(html, assunto):
         "configmap": ["configmap", "config map"],
         "secret": ["secret"],
         "ingress": ["ingress"],
-        "node": ["node"]
+        "node": ["node"],
     }
 
     termos = termos_busca.get(assunto_lower, [assunto_lower])
@@ -191,9 +201,7 @@ def buscar_doc_online(comando):
     tecnologia = tecnologia.lower().strip()
     assunto = assunto.lower().strip()
 
-    headers = {
-        "User-Agent": "DevOpsAssistant"
-    }
+    headers = {"User-Agent": "DevOpsAssistant"}
 
     url = None
 
@@ -215,7 +223,7 @@ def buscar_doc_online(comando):
             "start": "container/start",
             "stop": "container/stop",
             "restart": "container/restart",
-            "inspect": "container/inspect"
+            "inspect": "container/inspect",
         }
 
         caminho = aliases.get(assunto, assunto)
@@ -233,7 +241,7 @@ def buscar_doc_online(comando):
             "eks": "https://docs.aws.amazon.com/eks/",
             "rds": "https://docs.aws.amazon.com/rds/",
             "cloudwatch": "https://docs.aws.amazon.com/cloudwatch/",
-            "cli": "https://docs.aws.amazon.com/cli/"
+            "cli": "https://docs.aws.amazon.com/cli/",
         }
 
         url = aws_map.get(assunto)
@@ -243,11 +251,7 @@ def buscar_doc_online(comando):
 
     elif tecnologia == "linux":
         try:
-            resultado = subprocess.run(
-                ["man", assunto],
-                capture_output=True,
-                text=True
-            )
+            resultado = subprocess.run(["man", assunto], capture_output=True, text=True)
 
             if resultado.returncode != 0:
                 return None, None, f"Comando man não encontrado para: {assunto}"
@@ -271,7 +275,7 @@ def buscar_doc_online(comando):
             "configmap": "https://kubernetes.io/docs/concepts/configuration/configmap/",
             "secret": "https://kubernetes.io/docs/concepts/configuration/secret/",
             "ingress": "https://kubernetes.io/docs/concepts/services-networking/ingress/",
-            "node": "https://kubernetes.io/docs/concepts/architecture/nodes/"
+            "node": "https://kubernetes.io/docs/concepts/architecture/nodes/",
         }
 
         url = kubernetes_map.get(assunto)

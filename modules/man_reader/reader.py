@@ -39,12 +39,7 @@ def ler_man_page(comando):
             ["man", comando],
             capture_output=True,
             text=True,
-            env={
-                "MANPAGER": "cat",
-                "PAGER": "cat",
-                "LANG": "C",
-                "LC_ALL": "C"
-            }
+            env={"MANPAGER": "cat", "PAGER": "cat", "LANG": "C", "LC_ALL": "C"},
         )
 
         if resultado.returncode != 0:

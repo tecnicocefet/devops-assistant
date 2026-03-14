@@ -65,7 +65,7 @@ def buscar_doc_em_data(pergunta, data_path="data"):
         "docker": "docker_docs",
         "terraform": "terraform_docs",
         "kubernetes": "kubernetes_docs",
-        "aws": "aws_docs"
+        "aws": "aws_docs",
     }
 
     pergunta = pergunta.strip().lower()
@@ -77,7 +77,9 @@ def buscar_doc_em_data(pergunta, data_path="data"):
             arquivo = arquivo.strip()
 
             if tecnologia in mapa_docs:
-                caminho = os.path.join(data_path, mapa_docs[tecnologia], f"{arquivo}.md")
+                caminho = os.path.join(
+                    data_path, mapa_docs[tecnologia], f"{arquivo}.md"
+                )
 
                 if os.path.exists(caminho):
                     return caminho, ler_arquivo(caminho)

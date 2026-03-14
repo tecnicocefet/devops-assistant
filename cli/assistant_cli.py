@@ -16,7 +16,6 @@ from modules.code_analyzer.analyzer import (
     corrigir_texto_stream,
 )
 
-
 MAPA_DOCS = {
     "linux": "linux_docs",
     "git": "git_docs",
@@ -165,7 +164,9 @@ def resolver_caminho_analise(caminho_arquivo):
     return os.path.join(ANALYSIS_DIR, os.path.basename(caminho_arquivo))
 
 
-def atualizar_ultimo_webdoc(tecnologia=None, assunto=None, url=None, conteudo=None, resposta=None):
+def atualizar_ultimo_webdoc(
+    tecnologia=None, assunto=None, url=None, conteudo=None, resposta=None
+):
     ULTIMO_WEBDOC["tecnologia"] = tecnologia
     ULTIMO_WEBDOC["assunto"] = assunto
     ULTIMO_WEBDOC["url"] = url
@@ -190,9 +191,7 @@ def salvar_lab_arquivo(assunto, conteudo_lab):
 
         if escolha == "1":
             resultado = salvar_lab_arquivo_module(
-                assunto,
-                conteudo_lab,
-                modo="overwrite"
+                assunto, conteudo_lab, modo="overwrite"
             )
 
             if resultado["status"] == "saved":
@@ -206,10 +205,7 @@ def salvar_lab_arquivo(assunto, conteudo_lab):
             novo_nome = input("Digite o novo nome do lab (sem .md): ").strip().lower()
 
             resultado = salvar_lab_arquivo_module(
-                assunto,
-                conteudo_lab,
-                modo="rename",
-                novo_nome=novo_nome
+                assunto, conteudo_lab, modo="rename", novo_nome=novo_nome
             )
 
             if resultado["status"] == "saved":
@@ -238,7 +234,9 @@ def obter_doc_local(comando_doc):
         arquivo = arquivo.strip().lower()
 
         if tecnologia not in MAPA_DOCS:
-            print("Tecnologia não encontrada. Use: linux, git, docker, terraform, kubernetes ou aws.")
+            print(
+                "Tecnologia não encontrada. Use: linux, git, docker, terraform, kubernetes ou aws."
+            )
             return None, None
 
         base = os.path.join(DATA_DIR, MAPA_DOCS[tecnologia], arquivo)
@@ -284,7 +282,9 @@ def listar_labs():
                 mapa_labs[str(contador)] = f"{tecnologia}/{nome_lab}"
                 contador += 1
 
-    escolha = input("\nDigite o número do lab para abrir ou pressione Enter para sair: ").strip()
+    escolha = input(
+        "\nDigite o número do lab para abrir ou pressione Enter para sair: "
+    ).strip()
 
     if escolha in mapa_labs:
         tecnologia, nome_lab = mapa_labs[escolha].split("/")

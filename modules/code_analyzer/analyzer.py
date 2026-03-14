@@ -9,10 +9,18 @@ import ollama
 def detectar_tipo_arquivo(caminho):
     nome = (caminho or "").strip().lower()
 
-    if nome == "dockerfile" or nome.endswith("/dockerfile") or nome.endswith("\\dockerfile"):
+    if (
+        nome == "dockerfile"
+        or nome.endswith("/dockerfile")
+        or nome.endswith("\\dockerfile")
+    ):
         return "docker"
 
-    if "docker-compose" in nome or nome.endswith("compose.yaml") or nome.endswith("compose.yml"):
+    if (
+        "docker-compose" in nome
+        or nome.endswith("compose.yaml")
+        or nome.endswith("compose.yml")
+    ):
         return "compose"
 
     if nome.endswith(".yaml") or nome.endswith(".yml"):
@@ -43,9 +51,12 @@ def detectar_tipo_por_conteudo(conteudo):
     if texto.startswith("#!/bin/bash") or texto.startswith("#!/usr/bin/env bash"):
         return "bash"
 
-    if any(token in primeiras_linhas for token in ["if [", "then", "fi", "mkdir ", "cp ", "echo "]):
+    if any(
+        token in primeiras_linhas
+        for token in ["if [", "then", "fi", "mkdir ", "cp ", "echo "]
+    ):
         return "bash"
-
+    # fim da função (removido parêntese isolado)
     if any(
         linha.lower().startswith(
             ("from ", "run ", "copy ", "cmd ", "entrypoint ", "workdir ", "expose ")
@@ -56,12 +67,19 @@ def detectar_tipo_por_conteudo(conteudo):
 
     if any(
         token in texto_lower
-        for token in ['resource "', 'provider "', 'variable "', 'output "', 'terraform {']
+        for token in [
+            'resource "',
+            'provider "',
+            'variable "',
+            'output "',
+            "terraform {",
+        ]
     ):
         return "terraform"
 
     if "services:" in texto_lower and any(
-        token in texto_lower for token in ["image:", "ports:", "volumes:", "environment:", "build:"]
+        token in texto_lower
+        for token in ["image:", "ports:", "volumes:", "environment:", "build:"]
     ):
         return "compose"
 
@@ -106,7 +124,11 @@ def _executar_comando(comando, cwd=None):
             text=True,
             cwd=cwd,
         )
-        return resultado.returncode, (resultado.stdout or "").strip(), (resultado.stderr or "").strip()
+        return (
+            resultado.returncode,
+            (resultado.stdout or "").strip(),
+            (resultado.stderr or "").strip(),
+        )
     except Exception as exc:
         return 1, "", str(exc)
 
@@ -181,7 +203,9 @@ def _validar_bash(nome_arquivo, conteudo):
 
     try:
         if shutil.which("shellcheck"):
-            rc, stdout, stderr = _executar_comando(["shellcheck", "-f", "gcc", caminho_tmp])
+            rc, stdout, stderr = _executar_comando(
+                ["shellcheck", "-f", "gcc", caminho_tmp]
+            )
             saida = _juntar_saida(stdout, stderr)
 
             if rc == 0:
@@ -232,7 +256,9 @@ def _validar_yaml(nome_arquivo, conteudo):
         caminho_tmp = tmp.name
 
     try:
-        rc, stdout, stderr = _executar_comando(["yamllint", "-f", "parsable", caminho_tmp])
+        rc, stdout, stderr = _executar_comando(
+            ["yamllint", "-f", "parsable", caminho_tmp]
+        )
         saida = _juntar_saida(stdout, stderr)
 
         if rc == 0:
@@ -404,8 +430,11 @@ def montar_prompt_analise_texto(nome_arquivo, conteudo):
     )
 
     return [{"role": "user", "content": prompt}]
+
+
 def montar_prompt_analise(nome_arquivo, conteudo):
     return montar_prompt_analise_texto(nome_arquivo, conteudo)
+
 
 def montar_prompt_correcao(nome_arquivo, conteudo):
     tipo = detectar_tipo_arquivo(nome_arquivo)
@@ -554,6 +583,58 @@ def analisar_texto(modelo, nome_arquivo, conteudo):
         return None, f"Erro ao analisar conteúdo: {exc}"
 
 
+def _stream_resposta_validacao(modelo, nome_arquivo, conteudo, resultado_validacao):
+    resposta = _montar_resposta_validacao(
+        modelo,
+        nome_arquivo,
+        conteudo,
+        resultado_validacao,
+    )
+
+    if not resposta:
+        resposta = (
+            "## Diagnóstico\n\n"
+            "Encontrei erros no código, mas não consegui gerar a correção automática.\n\n"
+            "## Código corrigido\n\n"
+            "Não foi possível gerar a correção nesta etapa.\n"
+        )
+        yield resposta
+        return
+
+    gerou_saida = False
+    # Supondo que 'chunks' seja uma lista de respostas do modelo
+    for chunk in resultado_validacao.get("chunks", []):
+        if "message" in chunk and "content" in chunk["message"]:
+            texto = chunk["message"]["content"]
+            if not texto:
+                continue
+            gerou_saida = True
+            # envia em pedaços menores
+            for parte in texto.split("\n"):
+                yield parte + "\n"
+    if not gerou_saida:
+        yield (
+            "## Diagnóstico\n\n"
+            "Encontrei erros no código, mas não consegui gerar a correção automática.\n\n"
+            "## Código corrigido\n\n"
+            "Não foi possível gerar a correção nesta etapa.\n"
+        )
+    # Exemplo de saída adicional (ajuste conforme necessário)
+    erros_reais = "\n".join(resultado_validacao.get("itens", []))
+    # Definindo variáveis 'linguagem' e 'tipo' para evitar erro de variável indefinida
+    linguagem = resultado_validacao.get("linguagem", "python")
+    tipo = resultado_validacao.get("tipo", "desconhecido")
+    yield (
+        f"```{linguagem}\n"
+        "<CÓDIGO COMPLETO CORRIGIDO>\n"
+        "```\n\n"
+        f"Tipo detectado: {tipo}\n"
+        f"Validator usado: {resultado_validacao['fonte']}\n\n"
+        f"Erros reais do validator:\n{erros_reais}\n\n"
+        f"Código original:\n```{linguagem}\n{conteudo}\n```"
+    )
+
+
 def analisar_texto_stream(modelo, nome_arquivo, conteudo):
     if not conteudo or not conteudo.strip():
         yield "Conteúdo vazio.\n"
@@ -564,20 +645,17 @@ def analisar_texto_stream(modelo, nome_arquivo, conteudo):
         print("DEBUG resultado_validacao =", resultado_validacao)
 
         if resultado_validacao is not None:
-            resposta_validacao = _montar_resposta_validacao(
+            print("DEBUG entrou no stream da validacao")
+
+            for chunk in _stream_resposta_validacao(
                 modelo,
                 nome_arquivo,
                 conteudo,
                 resultado_validacao,
-            )
+            ):
+                if chunk:
+                    yield chunk
 
-            if not resposta_validacao:
-                resposta_validacao = "Erro ao montar resposta da validação."
-
-            print("DEBUG entrou no return da validacao")
-            print("DEBUG resposta_validacao =", repr(resposta_validacao))
-
-            yield resposta_validacao + "\n"
             return
 
         mensagens = montar_prompt_analise_texto(nome_arquivo, conteudo)

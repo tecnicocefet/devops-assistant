@@ -1,16 +1,11 @@
 import os
 import ollama
 
-
 LABS_DIR = "labs"
 
 
 def gerar_lab(assunto, buscar_na_base_fn=None, buscar_doc_em_data_fn=None):
-    return {
-        "fonte_tipo": "assunto",
-        "fonte_caminho": None,
-        "conteudo": assunto
-    }
+    return {"fonte_tipo": "assunto", "fonte_caminho": None, "conteudo": assunto}
 
 
 def montar_prompt_lab(assunto, contexto, fonte_tipo, fonte_caminho=None):
@@ -62,7 +57,7 @@ Conteúdo de referência:
 
     return [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt}
+        {"role": "user", "content": user_prompt},
     ]
 
 
@@ -156,35 +151,25 @@ def salvar_lab_arquivo(assunto, conteudo_lab, modo="fail", novo_nome=None):
 
     if os.path.exists(arquivo_destino):
         if modo == "fail":
-            return {
-                "status": "exists",
-                "caminho": arquivo_destino
-            }
+            return {"status": "exists", "caminho": arquivo_destino}
 
         if modo == "overwrite":
             with open(arquivo_destino, "w", encoding="utf-8") as f:
                 f.write(conteudo_lab)
 
-            return {
-                "status": "saved",
-                "caminho": arquivo_destino,
-                "modo": "overwrite"
-            }
+            return {"status": "saved", "caminho": arquivo_destino, "modo": "overwrite"}
 
         if modo == "rename":
             if not novo_nome or not novo_nome.strip():
                 return {
                     "status": "error",
-                    "message": "novo_nome é obrigatório quando modo='rename'"
+                    "message": "novo_nome é obrigatório quando modo='rename'",
                 }
 
             _, novo_arquivo_destino = montar_caminho_lab_com_nome(assunto, novo_nome)
 
             if os.path.exists(novo_arquivo_destino):
-                return {
-                    "status": "exists",
-                    "caminho": novo_arquivo_destino
-                }
+                return {"status": "exists", "caminho": novo_arquivo_destino}
 
             with open(novo_arquivo_destino, "w", encoding="utf-8") as f:
                 f.write(conteudo_lab)
@@ -192,22 +177,16 @@ def salvar_lab_arquivo(assunto, conteudo_lab, modo="fail", novo_nome=None):
             return {
                 "status": "saved",
                 "caminho": novo_arquivo_destino,
-                "modo": "rename"
+                "modo": "rename",
             }
 
-        return {
-            "status": "error",
-            "message": f"modo inválido: {modo}"
-        }
+        return {"status": "error", "message": f"modo inválido: {modo}"}
 
     with open(arquivo_destino, "w", encoding="utf-8") as f:
         f.write(conteudo_lab)
 
-    return {
-        "status": "saved",
-        "caminho": arquivo_destino,
-        "modo": "new"
-    }
+    return {"status": "saved", "caminho": arquivo_destino, "modo": "new"}
+
 
 def listar_labs_salvos():
     labs = []
@@ -227,23 +206,23 @@ def listar_labs_salvos():
 
             caminho_arquivo = os.path.join(pasta_tecnologia, arquivo)
 
-            labs.append({
-                "tecnologia": tecnologia,
-                "arquivo": arquivo,
-                "caminho": caminho_arquivo,
-                "nome": arquivo[:-3]
-            })
+            labs.append(
+                {
+                    "tecnologia": tecnologia,
+                    "arquivo": arquivo,
+                    "caminho": caminho_arquivo,
+                    "nome": arquivo[:-3],
+                }
+            )
 
     return labs
+
 
 def ler_lab_salvo(tecnologia, nome):
     arquivo_destino = os.path.join(LABS_DIR, tecnologia, f"{nome}.md")
 
     if not os.path.exists(arquivo_destino):
-        return {
-            "status": "error",
-            "message": "Lab não encontrado."
-        }
+        return {"status": "error", "message": "Lab não encontrado."}
 
     with open(arquivo_destino, "r", encoding="utf-8") as f:
         conteudo = f.read()
@@ -253,5 +232,5 @@ def ler_lab_salvo(tecnologia, nome):
         "tecnologia": tecnologia,
         "nome": nome,
         "caminho": arquivo_destino,
-        "conteudo": conteudo
+        "conteudo": conteudo,
     }
