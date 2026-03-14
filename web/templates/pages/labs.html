@@ -1,8 +1,444 @@
 {% extends "base.html" %}
 
-{% block title %}Labs | DevOps Assistant{% endblock %}
-
 {% block content %}
+<div class="page">
     <h1>Labs</h1>
-    <p>Página de labs.</p>
+
+    <form id="labs-form">
+        <textarea
+            id="assunto"
+            name="assunto"
+            rows="4"
+            placeholder="Exemplo: linux/mkdir"
+            style="width: 100%;"
+        ></textarea>
+
+        <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
+            <button type="submit">Gerar lab</button>
+            <button type="button" id="listar-labs-btn">Listar labs</button>
+        </div>
+    </form>
+
+    <div id="status" style="display: none; margin-top: 12px;">
+        Requisição recebida. Gerando laboratório...
+    </div>
+
+    <div id="labs-lista" style="margin-top: 20px;"></div>
+
+    <div id="lab-selecionado" style="margin-top: 20px; display: none;">
+
+    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+        <h3 style="margin: 0;">Lab selecionado</h3>
+        <button type="button" id="fechar-lab-btn">Fechar</button>
+    </div>
+
+    <div class="message bot">
+        <div class="bubble">
+            <strong id="lab-selecionado-titulo"></strong><br>
+            <pre id="lab-selecionado-conteudo"></pre>
+        </div>
+    </div>
+
+</div>
+
+    <div id="chat-box" class="chat-box" style="margin-top: 20px;"></div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById("labs-form");
+    const chatBox = document.getElementById("chat-box");
+    const statusEl = document.getElementById("status");
+    const assuntoEl = document.getElementById("assunto");
+    const listarLabsBtn = document.getElementById("listar-labs-btn");
+    const labsListaEl = document.getElementById("labs-lista");
+
+    const labSelecionadoEl = document.getElementById("lab-selecionado");
+    const labSelecionadoTituloEl = document.getElementById("lab-selecionado-titulo");
+    const labSelecionadoConteudoEl = document.getElementById("lab-selecionado-conteudo");
+
+    const fecharLabBtn = document.getElementById("fechar-lab-btn");
+
+fecharLabBtn.addEventListener("click", function () {
+    labSelecionadoEl.style.display = "none";
+    labSelecionadoTituloEl.textContent = "";
+    labSelecionadoConteudoEl.textContent = "";
+});
+
+    function createMessage(role, title) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "message " + role;
+
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+
+        const strong = document.createElement("strong");
+        strong.textContent = title;
+
+        const pre = document.createElement("pre");
+
+        bubble.appendChild(strong);
+        bubble.appendChild(document.createElement("br"));
+        bubble.appendChild(pre);
+        wrapper.appendChild(bubble);
+
+        return { wrapper, bubble, pre };
+    }
+
+    async function refreshLabsList() {
+        labsListaEl.innerHTML = "Carregando labs...";
+
+        try {
+            const response = await fetch("/labs/list");
+
+            if (!response.ok) {
+                labsListaEl.innerHTML = "Erro ao listar labs.";
+                return;
+            }
+
+            const data = await response.json();
+
+            if (!data.labs || data.labs.length === 0) {
+                labsListaEl.innerHTML = "Nenhum lab salvo.";
+                return;
+            }
+
+            let html = "<h3>Labs disponíveis</h3>";
+            const labsPorTecnologia = {};
+
+            for (const lab of data.labs) {
+                if (!labsPorTecnologia[lab.tecnologia]) {
+                    labsPorTecnologia[lab.tecnologia] = [];
+                }
+                labsPorTecnologia[lab.tecnologia].push(lab);
+            }
+
+            for (const tecnologia of Object.keys(labsPorTecnologia).sort()) {
+                html += `<div style="margin-top: 12px;"><strong>${tecnologia}</strong></div>`;
+
+                labsPorTecnologia[tecnologia].forEach((lab, index) => {
+                    html += `
+                        <div style="margin-top: 6px; margin-left: 16px;">
+                            <button
+                                type="button"
+                                class="abrir-lab-btn"
+                                data-tecnologia="${lab.tecnologia}"
+                                data-nome="${lab.nome}"
+                                style="min-width: 220px; text-align: left; padding: 6px 10px;"
+                            >
+                                ${index + 1} - ${lab.nome}
+                            </button>
+                        </div>
+                    `;
+                });
+            }
+
+            labsListaEl.innerHTML = html;
+
+        } catch (error) {
+            labsListaEl.innerHTML = "Erro ao listar labs.";
+        }
+    }
+
+    async function salvarLab(assunto, conteudo, modo = "fail", novoNome = "") {
+        const response = await fetch("/labs/save", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body: new URLSearchParams({
+                assunto: assunto,
+                conteudo: conteudo,
+                modo: modo,
+                novo_nome: novoNome
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error("Erro HTTP ao salvar.");
+        }
+
+        return await response.json();
+    }
+
+    function createSaveButton(assunto, conteudo, bubble) {
+        const actions = document.createElement("div");
+        actions.style.marginTop = "12px";
+        actions.style.display = "flex";
+        actions.style.gap = "8px";
+        actions.style.flexWrap = "wrap";
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = "Salvar lab";
+
+        const feedback = document.createElement("div");
+        feedback.style.marginTop = "8px";
+
+        button.addEventListener("click", async function () {
+            button.disabled = true;
+            button.textContent = "Salvando...";
+            feedback.textContent = "";
+
+            try {
+                const data = await salvarLab(assunto, conteudo);
+
+                if (data.status === "saved") {
+                    button.textContent = "Salvo";
+                    button.disabled = true;
+                    feedback.textContent = "Lab salvo em: " + data.caminho;
+                    await refreshLabsList();
+                    return;
+                }
+
+                if (data.status === "exists") {
+                    button.style.display = "none";
+
+                    const conflito = document.createElement("div");
+                    conflito.style.marginTop = "8px";
+                    conflito.style.display = "flex";
+                    conflito.style.gap = "8px";
+                    conflito.style.flexWrap = "wrap";
+
+                    const texto = document.createElement("div");
+                    texto.style.width = "100%";
+                    texto.textContent = "Já existe um lab com esse nome. Escolha uma opção:";
+
+                    const overwriteBtn = document.createElement("button");
+                    overwriteBtn.type = "button";
+                    overwriteBtn.textContent = "Sobrescrever";
+
+                    const renameBtn = document.createElement("button");
+                    renameBtn.type = "button";
+                    renameBtn.textContent = "Salvar com outro nome";
+
+                    const cancelBtn = document.createElement("button");
+                    cancelBtn.type = "button";
+                    cancelBtn.textContent = "Cancelar";
+
+                    const renameBox = document.createElement("div");
+                    renameBox.style.display = "none";
+                    renameBox.style.width = "100%";
+                    renameBox.style.marginTop = "8px";
+
+                    const renameInput = document.createElement("input");
+                    renameInput.type = "text";
+                    renameInput.placeholder = "Novo nome do lab";
+                    renameInput.style.marginRight = "8px";
+
+                    const confirmRenameBtn = document.createElement("button");
+                    confirmRenameBtn.type = "button";
+                    confirmRenameBtn.textContent = "Confirmar nome";
+
+                    renameBox.appendChild(renameInput);
+                    renameBox.appendChild(confirmRenameBtn);
+
+                    overwriteBtn.addEventListener("click", async function () {
+                        overwriteBtn.disabled = true;
+                        renameBtn.disabled = true;
+                        cancelBtn.disabled = true;
+                        overwriteBtn.textContent = "Sobrescrevendo...";
+
+                        try {
+                            const overwriteData = await salvarLab(assunto, conteudo, "overwrite");
+
+                            if (overwriteData.status === "saved") {
+                                feedback.textContent = "Lab sobrescrito em: " + overwriteData.caminho;
+                                conflito.remove();
+                                await refreshLabsList();
+                            } else {
+                                feedback.textContent = "Erro ao sobrescrever.";
+                            }
+                        } catch (error) {
+                            feedback.textContent = "Erro ao sobrescrever.";
+                        }
+                    });
+
+                    renameBtn.addEventListener("click", function () {
+                        renameBox.style.display = "block";
+                        renameInput.focus();
+                    });
+
+                    confirmRenameBtn.addEventListener("click", async function () {
+                        const novoNome = renameInput.value.trim();
+
+                        if (!novoNome) {
+                            feedback.textContent = "Informe um novo nome.";
+                            return;
+                        }
+
+                        confirmRenameBtn.disabled = true;
+                        renameInput.disabled = true;
+                        overwriteBtn.disabled = true;
+                        renameBtn.disabled = true;
+                        cancelBtn.disabled = true;
+                        confirmRenameBtn.textContent = "Salvando...";
+
+                        try {
+                            const renameData = await salvarLab(assunto, conteudo, "rename", novoNome);
+
+                            if (renameData.status === "saved") {
+                                feedback.textContent = "Lab salvo em: " + renameData.caminho;
+                                conflito.remove();
+                                await refreshLabsList();
+                                return;
+                            }
+
+                            if (renameData.status === "exists") {
+                                feedback.textContent = "Esse novo nome já existe.";
+                                confirmRenameBtn.disabled = false;
+                                renameInput.disabled = false;
+                                overwriteBtn.disabled = false;
+                                renameBtn.disabled = false;
+                                cancelBtn.disabled = false;
+                                confirmRenameBtn.textContent = "Confirmar nome";
+                                return;
+                            }
+
+                            feedback.textContent = renameData.message || "Erro ao salvar com outro nome.";
+                        } catch (error) {
+                            feedback.textContent = "Erro ao salvar com outro nome.";
+                        }
+                    });
+
+                    cancelBtn.addEventListener("click", function () {
+                        conflito.remove();
+                        button.style.display = "inline-block";
+                        button.disabled = false;
+                        button.textContent = "Salvar lab";
+                        feedback.textContent = "Salvamento cancelado.";
+                    });
+
+                    conflito.appendChild(texto);
+                    conflito.appendChild(overwriteBtn);
+                    conflito.appendChild(renameBtn);
+                    conflito.appendChild(cancelBtn);
+                    conflito.appendChild(renameBox);
+
+                    actions.appendChild(conflito);
+                    return;
+                }
+
+                button.textContent = "Erro ao salvar";
+                button.disabled = false;
+                feedback.textContent = data.message || "Erro ao salvar.";
+
+            } catch (error) {
+                button.textContent = "Erro ao salvar";
+                button.disabled = false;
+                feedback.textContent = "Erro ao salvar.";
+            }
+        });
+
+        actions.appendChild(button);
+        bubble.appendChild(actions);
+        bubble.appendChild(feedback);
+    }
+
+    listarLabsBtn.addEventListener("click", async function () {
+        await refreshLabsList();
+    });
+
+    labsListaEl.addEventListener("click", async function (e) {
+        const botao = e.target.closest(".abrir-lab-btn");
+
+        if (!botao) {
+            return;
+        }
+
+        const tecnologia = botao.dataset.tecnologia;
+        const nome = botao.dataset.nome;
+
+        labSelecionadoEl.style.display = "block";
+        labSelecionadoTituloEl.textContent = `${tecnologia} / ${nome}`;
+        labSelecionadoConteudoEl.textContent = "Carregando...";
+
+        try {
+            const response = await fetch(
+                `/labs/open?tecnologia=${encodeURIComponent(tecnologia)}&nome=${encodeURIComponent(nome)}`
+            );
+
+            if (!response.ok) {
+                labSelecionadoConteudoEl.textContent = "Erro ao abrir lab.";
+                return;
+            }
+
+            const data = await response.json();
+
+            if (data.status !== "ok") {
+                labSelecionadoConteudoEl.textContent = data.message || "Lab não encontrado.";
+                return;
+            }
+
+            labSelecionadoTituloEl.textContent = `${data.tecnologia} / ${data.nome}`;
+            labSelecionadoConteudoEl.textContent = data.conteudo;
+
+        } catch (error) {
+            labSelecionadoConteudoEl.textContent = "Erro ao abrir lab.";
+        }
+    });
+
+    form.addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const assunto = assuntoEl.value;
+
+        if (!assunto.trim()) {
+            return;
+        }
+
+        statusEl.style.display = "block";
+
+        const userMsg = createMessage("user", "Você:");
+        userMsg.pre.textContent = assunto;
+        chatBox.appendChild(userMsg.wrapper);
+
+        const botMsg = createMessage("bot", "Lab:");
+        chatBox.appendChild(botMsg.wrapper);
+
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        try {
+            const response = await fetch("/labs/run", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: new URLSearchParams({ assunto })
+            });
+
+            if (!response.ok) {
+                botMsg.pre.textContent = "Erro HTTP: " + response.status;
+                return;
+            }
+
+            if (!response.body) {
+                botMsg.pre.textContent = "Erro: resposta sem stream.";
+                return;
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+
+            while (true) {
+                const { done, value } = await reader.read();
+
+                if (done) break;
+
+                botMsg.pre.textContent += decoder.decode(value, { stream: true });
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+
+            if (botMsg.pre.textContent.trim()) {
+                createSaveButton(assunto, botMsg.pre.textContent, botMsg.bubble);
+            }
+
+        } catch (error) {
+            botMsg.pre.textContent = "Erro ao gerar lab: " + error;
+        } finally {
+            statusEl.style.display = "none";
+        }
+    });
+});
+</script>
 {% endblock %}

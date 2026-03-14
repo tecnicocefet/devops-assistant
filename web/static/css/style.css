@@ -143,3 +143,18 @@ body {
     font-size: 14px;
     line-height: 1.5;
 }
+
+.bubble pre,
+#codigo-corrigido-conteudo,
+#codigo-corrigido-box pre code {
+    font-size: 18px !important;
+    line-height: 1.7 !important;
+    font-family: monospace;
+}
+
+#codigo-corrigido-box pre {
+    margin: 8px 0 0 0;
+    padding: 16px;
+    border-radius: 10px;
+    overflow-x: auto;
+}

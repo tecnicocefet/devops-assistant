@@ -5,7 +5,7 @@ from config.settings import DATA_DIR, LABS_DIR, KNOWLEDGE_BASE_DIR, ANALYSIS_DIR
 from modules.doc_reader.reader import ler_arquivo, buscar_na_base, buscar_doc_em_data
 from modules.official_docs.online_reader import buscar_doc_online
 from modules.man_reader.reader import ler_man_page
-from modules.lab_generator.generator import gerar_lab, montar_prompt_lab
+from modules.lab_generator.generator import gerar_lab, montar_prompt_lab, salvar_lab_arquivo as salvar_lab_arquivo_module
 from modules.code_analyzer.analyzer import (
     ler_codigo,
     montar_prompt_analise,
@@ -170,40 +170,57 @@ def atualizar_ultimo_webdoc(tecnologia=None, assunto=None, url=None, conteudo=No
 
 
 def salvar_lab_arquivo(assunto, conteudo_lab):
-    partes = assunto.split("/", 1)
+    resultado = salvar_lab_arquivo_module(assunto, conteudo_lab, modo="fail")
 
-    if len(partes) == 2:
-        tecnologia, nome_lab = partes
-        tecnologia = tecnologia.strip().lower()
-        nome_lab = nome_lab.strip().lower()
-    else:
-        tecnologia = "geral"
-        nome_lab = assunto.strip().lower().replace(" ", "-")
+    if resultado["status"] == "saved":
+        print(f"\nLab salvo em: {resultado['caminho']}\n")
+        return
 
-    pasta_destino = os.path.join(LABS_DIR, tecnologia)
-    os.makedirs(pasta_destino, exist_ok=True)
-
-    arquivo_destino = os.path.join(pasta_destino, f"{nome_lab}.md")
-
-    if os.path.exists(arquivo_destino):
-        print(f"\nO lab {arquivo_destino} já existe.\n")
+    if resultado["status"] == "exists":
+        print(f"\nO lab {resultado['caminho']} já existe.\n")
         print("1 - Sobrescrever")
         print("2 - Salvar com outro nome")
         print("3 - Cancelar")
 
         escolha = input("\nEscolha uma opção: ").strip()
 
-        if escolha == "2":
-            novo_nome = input("Digite o novo nome do lab (sem .md): ").strip().lower()
-            arquivo_destino = os.path.join(pasta_destino, f"{novo_nome}.md")
-        elif escolha != "1":
-            print("Operação cancelada.")
+        if escolha == "1":
+            resultado = salvar_lab_arquivo_module(
+                assunto,
+                conteudo_lab,
+                modo="overwrite"
+            )
+
+            if resultado["status"] == "saved":
+                print(f"\nLab salvo em: {resultado['caminho']}\n")
+            else:
+                print("\nErro ao sobrescrever o lab.\n")
+
             return
 
-    with open(arquivo_destino, "w", encoding="utf-8") as f:
-        f.write(conteudo_lab)
+        if escolha == "2":
+            novo_nome = input("Digite o novo nome do lab (sem .md): ").strip().lower()
 
-    print(f"\nLab salvo em: {arquivo_destino}\n")
+            resultado = salvar_lab_arquivo_module(
+                assunto,
+                conteudo_lab,
+                modo="rename",
+                novo_nome=novo_nome
+            )
+
+            if resultado["status"] == "saved":
+                print(f"\nLab salvo em: {resultado['caminho']}\n")
+            elif resultado["status"] == "exists":
+                print(f"\nJá existe um lab com esse nome: {resultado['caminho']}\n")
+            else:
+                print(f"\nErro: {resultado.get('message', 'erro ao salvar lab')}\n")
+
+            return
+
+        print("Operação cancelada.")
+        return
+
+    print(f"\nErro: {resultado.get('message', 'erro ao salvar lab')}\n")
 
 
 def obter_doc_local(comando_doc):
