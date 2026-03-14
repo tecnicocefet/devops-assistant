@@ -1,0 +1,8 @@
+version: "3.8"
+services: # adicionei o ":" no final desta linha
+  web:
+    image: nginx:latest
+    ports:
+      - "8080:80"
+    environment:
+      APP_ENV: production

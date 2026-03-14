@@ -56,7 +56,7 @@ def detectar_tipo_por_conteudo(conteudo):
         for token in ["if [", "then", "fi", "mkdir ", "cp ", "echo "]
     ):
         return "bash"
-    # fim da função (removido parêntese isolado)
+
     if any(
         linha.lower().startswith(
             ("from ", "run ", "copy ", "cmd ", "entrypoint ", "workdir ", "expose ")
@@ -583,58 +583,6 @@ def analisar_texto(modelo, nome_arquivo, conteudo):
         return None, f"Erro ao analisar conteúdo: {exc}"
 
 
-def _stream_resposta_validacao(modelo, nome_arquivo, conteudo, resultado_validacao):
-    resposta = _montar_resposta_validacao(
-        modelo,
-        nome_arquivo,
-        conteudo,
-        resultado_validacao,
-    )
-
-    if not resposta:
-        resposta = (
-            "## Diagnóstico\n\n"
-            "Encontrei erros no código, mas não consegui gerar a correção automática.\n\n"
-            "## Código corrigido\n\n"
-            "Não foi possível gerar a correção nesta etapa.\n"
-        )
-        yield resposta
-        return
-
-    gerou_saida = False
-    # Supondo que 'chunks' seja uma lista de respostas do modelo
-    for chunk in resultado_validacao.get("chunks", []):
-        if "message" in chunk and "content" in chunk["message"]:
-            texto = chunk["message"]["content"]
-            if not texto:
-                continue
-            gerou_saida = True
-            # envia em pedaços menores
-            for parte in texto.split("\n"):
-                yield parte + "\n"
-    if not gerou_saida:
-        yield (
-            "## Diagnóstico\n\n"
-            "Encontrei erros no código, mas não consegui gerar a correção automática.\n\n"
-            "## Código corrigido\n\n"
-            "Não foi possível gerar a correção nesta etapa.\n"
-        )
-    # Exemplo de saída adicional (ajuste conforme necessário)
-    erros_reais = "\n".join(resultado_validacao.get("itens", []))
-    # Definindo variáveis 'linguagem' e 'tipo' para evitar erro de variável indefinida
-    linguagem = resultado_validacao.get("linguagem", "python")
-    tipo = resultado_validacao.get("tipo", "desconhecido")
-    yield (
-        f"```{linguagem}\n"
-        "<CÓDIGO COMPLETO CORRIGIDO>\n"
-        "```\n\n"
-        f"Tipo detectado: {tipo}\n"
-        f"Validator usado: {resultado_validacao['fonte']}\n\n"
-        f"Erros reais do validator:\n{erros_reais}\n\n"
-        f"Código original:\n```{linguagem}\n{conteudo}\n```"
-    )
-
-
 def analisar_texto_stream(modelo, nome_arquivo, conteudo):
     if not conteudo or not conteudo.strip():
         yield "Conteúdo vazio.\n"
@@ -645,17 +593,20 @@ def analisar_texto_stream(modelo, nome_arquivo, conteudo):
         print("DEBUG resultado_validacao =", resultado_validacao)
 
         if resultado_validacao is not None:
-            print("DEBUG entrou no stream da validacao")
-
-            for chunk in _stream_resposta_validacao(
+            resposta_validacao = _montar_resposta_validacao(
                 modelo,
                 nome_arquivo,
                 conteudo,
                 resultado_validacao,
-            ):
-                if chunk:
-                    yield chunk
+            )
 
+            if not resposta_validacao:
+                resposta_validacao = "Erro ao montar resposta da validação."
+
+            print("DEBUG entrou no return da validacao")
+            print("DEBUG resposta_validacao =", repr(resposta_validacao))
+
+            yield resposta_validacao + "\n"
             return
 
         mensagens = montar_prompt_analise_texto(nome_arquivo, conteudo)
