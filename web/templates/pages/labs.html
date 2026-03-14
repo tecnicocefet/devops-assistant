@@ -16,6 +16,7 @@
         <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
             <button type="submit">Gerar lab</button>
             <button type="button" id="listar-labs-btn">Listar labs</button>
+            <button type="button" id="limpar-labs">Limpar tela</button>
         </div>
     </form>
 
@@ -26,20 +27,18 @@
     <div id="labs-lista" style="margin-top: 20px;"></div>
 
     <div id="lab-selecionado" style="margin-top: 20px; display: none;">
+        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+            <h3 style="margin: 0;">Lab selecionado</h3>
+            <button type="button" id="fechar-lab-btn">Fechar</button>
+        </div>
 
-    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
-        <h3 style="margin: 0;">Lab selecionado</h3>
-        <button type="button" id="fechar-lab-btn">Fechar</button>
-    </div>
-
-    <div class="message bot">
-        <div class="bubble">
-            <strong id="lab-selecionado-titulo"></strong><br>
-            <pre id="lab-selecionado-conteudo"></pre>
+        <div class="message bot">
+            <div class="bubble">
+                <strong id="lab-selecionado-titulo"></strong><br>
+                <pre id="lab-selecionado-conteudo"></pre>
+            </div>
         </div>
     </div>
-
-</div>
 
     <div id="chat-box" class="chat-box" style="margin-top: 20px;"></div>
 </div>
@@ -58,12 +57,48 @@ document.addEventListener("DOMContentLoaded", function () {
     const labSelecionadoConteudoEl = document.getElementById("lab-selecionado-conteudo");
 
     const fecharLabBtn = document.getElementById("fechar-lab-btn");
+    const limparBtn = document.getElementById("limpar-labs");
 
-fecharLabBtn.addEventListener("click", function () {
-    labSelecionadoEl.style.display = "none";
-    labSelecionadoTituloEl.textContent = "";
-    labSelecionadoConteudoEl.textContent = "";
-});
+    limparBtn.addEventListener("click", function () {
+        if (!confirm("Limpar a tela?")) {
+            return;
+        }
+
+        if (assuntoEl) {
+            assuntoEl.value = "";
+        }
+
+        if (chatBox) {
+            chatBox.innerHTML = "";
+        }
+
+        if (labsListaEl) {
+            labsListaEl.innerHTML = "";
+            labsListaEl.style.display = "none";
+        }
+
+        if (labSelecionadoEl) {
+            labSelecionadoEl.style.display = "none";
+        }
+
+        if (labSelecionadoTituloEl) {
+            labSelecionadoTituloEl.textContent = "";
+        }
+
+        if (labSelecionadoConteudoEl) {
+            labSelecionadoConteudoEl.textContent = "";
+        }
+
+        if (statusEl) {
+            statusEl.style.display = "none";
+        }
+    });
+
+    fecharLabBtn.addEventListener("click", function () {
+        labSelecionadoEl.style.display = "none";
+        labSelecionadoTituloEl.textContent = "";
+        labSelecionadoConteudoEl.textContent = "";
+    });
 
     function createMessage(role, title) {
         const wrapper = document.createElement("div");
@@ -86,6 +121,7 @@ fecharLabBtn.addEventListener("click", function () {
     }
 
     async function refreshLabsList() {
+        labsListaEl.style.display = "block";
         labsListaEl.innerHTML = "Carregando labs...";
 
         try {
@@ -427,6 +463,11 @@ fecharLabBtn.addEventListener("click", function () {
 
                 botMsg.pre.textContent += decoder.decode(value, { stream: true });
                 chatBox.scrollTop = chatBox.scrollHeight;
+            }
+
+            const resto = decoder.decode();
+            if (resto) {
+                botMsg.pre.textContent += resto;
             }
 
             if (botMsg.pre.textContent.trim()) {

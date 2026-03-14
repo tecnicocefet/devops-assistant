@@ -9,14 +9,20 @@ def gerar_lab(assunto, buscar_na_base_fn=None, buscar_doc_em_data_fn=None):
 
 
 def montar_prompt_lab(assunto, contexto, fonte_tipo, fonte_caminho=None):
-    system_prompt = """Você é um instrutor DevOps especializado em criar laboratórios práticos de Linux.
+    system_prompt = """Você é um instrutor DevOps especializado em criar laboratórios práticos.
 
-Use apenas o assunto e o conteúdo de referência recebidos.
-Não altere o assunto do laboratório.
-Não invente comandos fora do contexto do assunto.
-Não mostre instruções internas.
-Não explique como foi gerado o laboratório.
-Responda apenas com o laboratório final em português do Brasil.
+Sua tarefa é gerar exatamente 1 laboratório completo.
+
+REGRAS OBRIGATÓRIAS:
+- Use apenas o assunto e o conteúdo de referência recebidos
+- Não explique seu raciocínio
+- Não mostre instruções internas
+- Não repita o prompt
+- Não escreva textos como "aqui está", "vou gerar", "segue abaixo"
+- Não mencione system prompt, user prompt, instruções, contexto interno ou regras
+- Gere obrigatoriamente as 3 seções: BÁSICO, INTERMEDIÁRIO e AVANÇADO
+- A resposta final deve conter somente o laboratório pronto
+- Siga exatamente a estrutura abaixo
 
 A resposta deve seguir exatamente esta estrutura:
 
@@ -50,6 +56,9 @@ A resposta deve seguir exatamente esta estrutura:
 """
 
     user_prompt = f"""Assunto do laboratório: {assunto}
+
+Tipo da fonte: {fonte_tipo}
+Caminho da fonte: {fonte_caminho or "não informado"}
 
 Conteúdo de referência:
 {contexto}
@@ -86,7 +95,7 @@ def gerar_lab_stream(assunto, modelo):
             stream=True,
             options={
                 "temperature": 0.2,
-                "num_predict": 5000,
+                "num_predict": 3000,
             },
         )
 

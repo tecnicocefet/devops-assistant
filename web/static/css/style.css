@@ -158,3 +158,19 @@ body {
     border-radius: 10px;
     overflow-x: auto;
 }
+
+.tech-icons {
+    margin-top: 30px;
+    font-size: 48px;
+    display: flex;
+    gap: 30px;
+}
+
+.tech-icons i {
+    opacity: 0.9;
+    transition: transform 0.2s ease;
+}
+
+.tech-icons i:hover {
+    transform: scale(1.2);
+}
