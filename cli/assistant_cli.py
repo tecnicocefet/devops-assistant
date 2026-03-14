@@ -5,11 +5,15 @@ from config.settings import DATA_DIR, LABS_DIR, KNOWLEDGE_BASE_DIR, ANALYSIS_DIR
 from modules.doc_reader.reader import ler_arquivo, buscar_na_base, buscar_doc_em_data
 from modules.official_docs.online_reader import buscar_doc_online
 from modules.man_reader.reader import ler_man_page
-from modules.lab_generator.generator import gerar_lab, montar_prompt_lab, salvar_lab_arquivo as salvar_lab_arquivo_module
+from modules.lab_generator.generator import (
+    gerar_lab,
+    montar_prompt_lab,
+    salvar_lab_arquivo as salvar_lab_arquivo_module,
+)
 from modules.code_analyzer.analyzer import (
     ler_codigo,
-    montar_prompt_analise,
-    montar_prompt_correcao,
+    analisar_texto,
+    corrigir_texto_stream,
 )
 
 
@@ -602,8 +606,16 @@ def processar_analisar(pergunta, modelo):
 
     print(f"\n[Analisando arquivo: {caminho_arquivo}]\n")
 
-    mensagens = montar_prompt_analise(caminho_arquivo, conteudo_codigo)
-    gerar_resposta(modelo, mensagens)
+    resposta, erro = analisar_texto(modelo, caminho_arquivo, conteudo_codigo)
+
+    if erro:
+        print(erro)
+        return
+
+    if resposta:
+        print(resposta)
+    else:
+        print("Nenhuma resposta foi gerada.")
 
 
 def processar_corrigir(pergunta, modelo):
@@ -622,8 +634,19 @@ def processar_corrigir(pergunta, modelo):
 
     print(f"\n[Corrigindo arquivo: {caminho_arquivo}]\n")
 
-    mensagens = montar_prompt_correcao(caminho_arquivo, conteudo_codigo)
-    gerar_resposta(modelo, mensagens)
+    gerou_saida = False
+
+    for chunk in corrigir_texto_stream(modelo, caminho_arquivo, conteudo_codigo):
+        if not chunk:
+            continue
+
+        print(chunk, end="", flush=True)
+        gerou_saida = True
+
+    if gerou_saida:
+        print()
+    else:
+        print("Nenhuma resposta foi gerada.")
 
 
 def processar_pergunta_livre(pergunta, modelo):

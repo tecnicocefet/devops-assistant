@@ -111,101 +111,172 @@ def _executar_comando(comando, cwd=None):
         return 1, "", str(exc)
 
 
+def _juntar_saida(stdout, stderr):
+    return "\n".join([parte for parte in [stdout, stderr] if parte]).strip()
+
+
+def _resultado_ok(fonte):
+    return {
+        "ok": True,
+        "fonte": fonte,
+        "itens": [],
+    }
+
+
+def _resultado_erro(fonte, saida):
+    itens = [linha for linha in (saida or "").splitlines() if linha.strip()]
+
+    if not itens:
+        itens = [f"{fonte} retornou erro, mas sem detalhes."]
+
+    return {
+        "ok": False,
+        "fonte": fonte,
+        "itens": itens,
+    }
+
+
+def _agrupar_resultados(resultados):
+    resultados_validos = [r for r in resultados if r is not None]
+
+    if not resultados_validos:
+        return None
+
+    erros = []
+    fontes = []
+
+    for resultado in resultados_validos:
+        fonte = resultado.get("fonte")
+        if fonte and fonte not in fontes:
+            fontes.append(fonte)
+
+        if not resultado.get("ok", False):
+            erros.extend(resultado.get("itens", []))
+
+    if erros:
+        return {
+            "ok": False,
+            "fonte": " + ".join(fontes),
+            "itens": erros,
+        }
+
+    return {
+        "ok": True,
+        "fonte": " + ".join(fontes),
+        "itens": [],
+    }
+
+
 def _validar_bash(nome_arquivo, conteudo):
-    if shutil.which("shellcheck"):
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            suffix=".sh",
-            delete=False,
-            encoding="utf-8",
-        ) as tmp:
-            tmp.write(conteudo)
-            caminho_tmp = tmp.name
+    resultados = []
 
-        try:
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        suffix=".sh",
+        delete=False,
+        encoding="utf-8",
+    ) as tmp:
+        tmp.write(conteudo)
+        caminho_tmp = tmp.name
+
+    try:
+        if shutil.which("shellcheck"):
             rc, stdout, stderr = _executar_comando(["shellcheck", "-f", "gcc", caminho_tmp])
-            saida = "\n".join([parte for parte in [stdout, stderr] if parte]).strip()
+            saida = _juntar_saida(stdout, stderr)
 
             if rc == 0:
-                return {"ok": True, "fonte": "shellcheck", "itens": []}
+                resultados.append(_resultado_ok("shellcheck"))
+            else:
+                resultados.append(_resultado_erro("shellcheck", saida))
 
-            return {
-                "ok": False,
-                "fonte": "shellcheck",
-                "itens": [linha for linha in saida.splitlines() if linha.strip()],
-            }
-        finally:
-            try:
-                os.remove(caminho_tmp)
-            except OSError:
-                pass
-
-    if shutil.which("bash"):
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            suffix=".sh",
-            delete=False,
-            encoding="utf-8",
-        ) as tmp:
-            tmp.write(conteudo)
-            caminho_tmp = tmp.name
-
-        try:
+        if shutil.which("bash"):
             rc, stdout, stderr = _executar_comando(["bash", "-n", caminho_tmp])
-            saida = "\n".join([parte for parte in [stdout, stderr] if parte]).strip()
+            saida = _juntar_saida(stdout, stderr)
 
             if rc == 0:
-                return {"ok": True, "fonte": "bash -n", "itens": []}
+                resultados.append(_resultado_ok("bash -n"))
+            else:
+                resultados.append(_resultado_erro("bash -n", saida))
 
-            return {
-                "ok": False,
-                "fonte": "bash -n",
-                "itens": [linha for linha in saida.splitlines() if linha.strip()],
-            }
-        finally:
-            try:
-                os.remove(caminho_tmp)
-            except OSError:
-                pass
+        if shutil.which("shfmt"):
+            rc, stdout, stderr = _executar_comando(["shfmt", "-d", caminho_tmp])
+            saida = _juntar_saida(stdout, stderr)
 
-    return None
+            if rc == 0:
+                resultados.append(_resultado_ok("shfmt -d"))
+            else:
+                resultados.append(_resultado_erro("shfmt -d", saida))
+
+        return _agrupar_resultados(resultados)
+
+    finally:
+        try:
+            os.remove(caminho_tmp)
+        except OSError:
+            pass
 
 
 def _validar_yaml(nome_arquivo, conteudo):
     sufixo = ".yml" if nome_arquivo.lower().endswith(".yml") else ".yaml"
 
-    if shutil.which("yamllint"):
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            suffix=sufixo,
-            delete=False,
-            encoding="utf-8",
-        ) as tmp:
-            tmp.write(conteudo)
-            caminho_tmp = tmp.name
+    if not shutil.which("yamllint"):
+        return None
 
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        suffix=sufixo,
+        delete=False,
+        encoding="utf-8",
+    ) as tmp:
+        tmp.write(conteudo)
+        caminho_tmp = tmp.name
+
+    try:
+        rc, stdout, stderr = _executar_comando(["yamllint", "-f", "parsable", caminho_tmp])
+        saida = _juntar_saida(stdout, stderr)
+
+        if rc == 0:
+            return _resultado_ok("yamllint")
+
+        return _resultado_erro("yamllint", saida)
+    finally:
         try:
-            rc, stdout, stderr = _executar_comando(["yamllint", "-f", "parsable", caminho_tmp])
-            saida = "\n".join([parte for parte in [stdout, stderr] if parte]).strip()
+            os.remove(caminho_tmp)
+        except OSError:
+            pass
 
-            if rc == 0:
-                return {"ok": True, "fonte": "yamllint", "itens": []}
 
-            return {
-                "ok": False,
-                "fonte": "yamllint",
-                "itens": [linha for linha in saida.splitlines() if linha.strip()],
-            }
-        finally:
-            try:
-                os.remove(caminho_tmp)
-            except OSError:
-                pass
+def _validar_docker(nome_arquivo, conteudo):
+    if not shutil.which("hadolint"):
+        return None
 
-    return None
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        suffix=".Dockerfile",
+        delete=False,
+        encoding="utf-8",
+    ) as tmp:
+        tmp.write(conteudo)
+        caminho_tmp = tmp.name
+
+    try:
+        rc, stdout, stderr = _executar_comando(["hadolint", caminho_tmp])
+        saida = _juntar_saida(stdout, stderr)
+
+        if rc == 0:
+            return _resultado_ok("hadolint")
+
+        return _resultado_erro("hadolint", saida)
+    finally:
+        try:
+            os.remove(caminho_tmp)
+        except OSError:
+            pass
 
 
 def _validar_compose(nome_arquivo, conteudo):
+    resultados = []
+
     with tempfile.TemporaryDirectory() as tmpdir:
         caminho_tmp = os.path.join(tmpdir, "docker-compose.yml")
 
@@ -217,23 +288,25 @@ def _validar_compose(nome_arquivo, conteudo):
                 ["docker", "compose", "-f", caminho_tmp, "config"],
                 cwd=tmpdir,
             )
-            saida = "\n".join([parte for parte in [stdout, stderr] if parte]).strip()
+            saida = _juntar_saida(stdout, stderr)
 
             if rc == 0:
-                return {"ok": True, "fonte": "docker compose config", "itens": []}
+                resultados.append(_resultado_ok("docker compose config"))
+            else:
+                resultados.append(_resultado_erro("docker compose config", saida))
 
-            return {
-                "ok": False,
-                "fonte": "docker compose config",
-                "itens": [linha for linha in saida.splitlines() if linha.strip()],
-            }
+        yaml_resultado = _validar_yaml(nome_arquivo, conteudo)
+        if yaml_resultado is not None:
+            resultados.append(yaml_resultado)
 
-        return _validar_yaml(nome_arquivo, conteudo)
+    return _agrupar_resultados(resultados)
 
 
 def _validar_terraform(nome_arquivo, conteudo):
     if not shutil.which("terraform"):
         return None
+
+    resultados = []
 
     with tempfile.TemporaryDirectory() as tmpdir:
         caminho_tmp = os.path.join(tmpdir, "main.tf")
@@ -241,20 +314,38 @@ def _validar_terraform(nome_arquivo, conteudo):
         with open(caminho_tmp, "w", encoding="utf-8") as f:
             f.write(conteudo)
 
-        rc, stdout, stderr = _executar_comando(["terraform", "validate", "-no-color"], cwd=tmpdir)
-        saida = "\n".join([parte for parte in [stdout, stderr] if parte]).strip()
+        rc, stdout, stderr = _executar_comando(
+            ["terraform", "fmt", "-check", "-diff", "-no-color", caminho_tmp],
+            cwd=tmpdir,
+        )
+        saida = _juntar_saida(stdout, stderr)
 
         if rc == 0:
-            return {"ok": True, "fonte": "terraform validate", "itens": []}
+            resultados.append(_resultado_ok("terraform fmt -check"))
+        else:
+            resultados.append(_resultado_erro("terraform fmt -check", saida))
 
-        if not saida:
-            saida = "terraform validate retornou erro, mas sem detalhes."
+        rc, stdout, stderr = _executar_comando(
+            ["terraform", "init", "-backend=false", "-input=false", "-no-color"],
+            cwd=tmpdir,
+        )
 
-        return {
-            "ok": False,
-            "fonte": "terraform validate",
-            "itens": [linha for linha in saida.splitlines() if linha.strip()],
-        }
+        if rc == 0:
+            rc, stdout, stderr = _executar_comando(
+                ["terraform", "validate", "-no-color"],
+                cwd=tmpdir,
+            )
+            saida = _juntar_saida(stdout, stderr)
+
+            if rc == 0:
+                resultados.append(_resultado_ok("terraform validate"))
+            else:
+                resultados.append(_resultado_erro("terraform validate", saida))
+        else:
+            saida = _juntar_saida(stdout, stderr)
+            resultados.append(_resultado_erro("terraform init", saida))
+
+    return _agrupar_resultados(resultados)
 
 
 def validar_codigo(nome_arquivo, conteudo):
@@ -270,6 +361,9 @@ def validar_codigo(nome_arquivo, conteudo):
 
     if tipo == "yaml":
         return _validar_yaml(nome_arquivo, conteudo)
+
+    if tipo == "docker":
+        return _validar_docker(nome_arquivo, conteudo)
 
     if tipo == "compose":
         return _validar_compose(nome_arquivo, conteudo)
