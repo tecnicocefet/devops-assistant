@@ -111,7 +111,9 @@ def atualizar_index(tecnologia: str, comando: str, source: str = "manual") -> No
     salvar_index(tecnologia, index_data)
 
 
-def salvar_doc(tecnologia: str, comando: str, conteudo: str, source: str = "manual") -> dict:
+def salvar_doc(
+    tecnologia: str, comando: str, conteudo: str, source: str = "manual"
+) -> dict:
     caminho_doc = obter_caminho_doc(tecnologia, comando)
 
     with open(caminho_doc, "w", encoding="utf-8") as f:

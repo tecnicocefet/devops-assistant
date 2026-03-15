@@ -9,6 +9,17 @@ from modules.lab_generator.generator import (
     listar_labs_salvos,
     ler_lab_salvo,
 )
+from modules.doc_reader.reader import (
+    buscar_doc_em_data,
+    melhorar_doc_em_data,
+    melhorar_doc_em_data_stream,
+    salvar_doc_em_data,
+)
+from modules.man_reader.reader import (
+    ler_man_page,
+    explicar_man_page,
+    salvar_man_como_doc,
+)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="web/templates")
@@ -32,6 +43,11 @@ def labs_page(request: Request):
 @router.get("/kb", response_class=HTMLResponse)
 def kb_page(request: Request):
     return templates.TemplateResponse("pages/kb.html", {"request": request})
+
+
+@router.get("/reader", response_class=HTMLResponse)
+def reader_page(request: Request):
+    return templates.TemplateResponse("pages/reader.html", {"request": request})
 
 
 @router.post("/analyzer/run")
@@ -127,3 +143,118 @@ def listar_labs():
 @router.get("/labs/open")
 def abrir_lab(tecnologia: str, nome: str):
     return ler_lab_salvo(tecnologia, nome)
+
+
+@router.post("/reader/doc")
+def reader_doc(assunto: str = Form(...)):
+    def gerar_resposta():
+        try:
+            caminho, conteudo = buscar_doc_em_data(assunto)
+
+            if conteudo:
+                yield conteudo
+            else:
+                yield f"Documentação não encontrada para: {assunto}"
+
+        except Exception as erro:
+            yield f"Erro ao ler documentação: {erro}"
+
+    return StreamingResponse(
+        gerar_resposta(),
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+@router.post("/reader/doc/improve")
+def reader_doc_improve(assunto: str = Form(...)):
+    def gerar_resposta():
+        try:
+            for chunk in melhorar_doc_em_data_stream(
+                assunto,
+                modelo="deepseek-coder:6.7b",
+            ):
+                yield chunk
+        except Exception as erro:
+            yield f"Erro ao melhorar documentação: {erro}"
+
+    return StreamingResponse(
+        gerar_resposta(),
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+@router.post("/reader/doc/save")
+async def reader_doc_save(
+    assunto: str = Form(...),
+    conteudo: str = Form(...),
+):
+    return salvar_doc_em_data(assunto, conteudo)
+
+
+@router.post("/reader/man")
+def reader_man(comando: str = Form(...)):
+    def gerar_resposta():
+        try:
+            conteudo, erro = ler_man_page(comando)
+
+            if erro:
+                yield erro
+            else:
+                yield conteudo
+
+        except Exception as erro:
+            yield f"Erro ao consultar man page: {erro}"
+
+    return StreamingResponse(
+        gerar_resposta(),
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+@router.post("/reader/man/explain")
+def reader_man_explain(comando: str = Form(...)):
+    def gerar_resposta():
+        try:
+            conteudo, erro = explicar_man_page(
+                comando,
+                modelo="deepseek-coder:6.7b",
+            )
+
+            if erro:
+                yield erro
+            else:
+                yield conteudo
+
+        except Exception as erro:
+            yield f"Erro ao explicar man page: {erro}"
+
+    return StreamingResponse(
+        gerar_resposta(),
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+@router.post("/reader/man/save")
+async def reader_man_save(
+    comando: str = Form(...),
+    conteudo: str = Form(...),
+):
+    return salvar_man_como_doc(comando, conteudo)
