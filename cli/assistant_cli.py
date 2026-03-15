@@ -204,6 +204,70 @@ def salvar_lab_arquivo(assunto, conteudo_lab):
         f.write(conteudo_lab)
 
     print(f"\nLab salvo em: {arquivo_destino}\n")
+    
+def salvar_lab_arquivo(assunto, conteudo_lab):
+    partes = assunto.split("/", 1)
+
+    if len(partes) == 2:
+        tecnologia, nome_lab = partes
+        tecnologia = tecnologia.strip().lower()
+        nome_lab = nome_lab.strip().lower()
+    else:
+        tecnologia = "geral"
+        nome_lab = assunto.strip().lower().replace(" ", "-")
+
+    pasta_destino = os.path.join(LABS_DIR, tecnologia)
+    os.makedirs(pasta_destino, exist_ok=True)
+
+    arquivo_destino = os.path.join(pasta_destino, f"{nome_lab}.md")
+
+    if os.path.exists(arquivo_destino):
+        print(f"\nO lab {arquivo_destino} já existe.\n")
+        print("1 - Sobrescrever")
+        print("2 - Salvar com outro nome")
+        print("3 - Cancelar")
+
+        escolha = input("\nEscolha uma opção: ").strip()
+
+        if escolha == "2":
+            novo_nome = input("Digite o novo nome do lab (sem .md): ").strip().lower()
+            arquivo_destino = os.path.join(pasta_destino, f"{novo_nome}.md")
+        elif escolha != "1":
+            print("Operação cancelada.")
+            return
+
+    with open(arquivo_destino, "w", encoding="utf-8") as f:
+        f.write(conteudo_lab)
+
+    print(f"\nLab salvo em: {arquivo_destino}\n")
+
+
+def salvar_man_em_data(comando, conteudo):
+    pasta_destino = os.path.join(DATA_DIR, "linux_docs")
+    os.makedirs(pasta_destino, exist_ok=True)
+
+    nome_arquivo = comando.strip().lower().replace(" ", "-")
+    arquivo_destino = os.path.join(pasta_destino, f"{nome_arquivo}.md")
+
+    if os.path.exists(arquivo_destino):
+        print(f"\nA documentação {arquivo_destino} já existe.\n")
+        print("1 - Sobrescrever")
+        print("2 - Salvar com outro nome")
+        print("3 - Cancelar")
+
+        escolha = input("\nEscolha uma opção: ").strip()
+
+        if escolha == "2":
+            novo_nome = input("Digite o novo nome do arquivo (sem .md): ").strip().lower()
+            arquivo_destino = os.path.join(pasta_destino, f"{novo_nome}.md")
+        elif escolha != "1":
+            print("Operação cancelada.")
+            return
+
+    with open(arquivo_destino, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+
+    print(f"\nDocumentação salva em: {arquivo_destino}\n")
 
 
 def obter_doc_local(comando_doc):
@@ -437,10 +501,12 @@ Explique a man page de forma didática.
 
 REGRAS IMPORTANTES:
 - Responda em português.
-- Use formatação Markdown.
-- Cada seção deve começar em uma nova linha.
-- Sempre deixe uma linha em branco entre seções.
-- Não escreva tudo em um único parágrafo.
+- Use Markdown simples e limpo.
+- Use apenas uma linha em branco entre seções.
+- Não adicione linhas em branco extras.
+- Sempre feche blocos de código Markdown corretamente.
+- Nunca deixe blocos ``` abertos.
+- Não gere blocos de código vazios.
 - Não escreva assinaturas ou despedidas.
 - Não escreva frases como "fim da explicação".
 
@@ -459,6 +525,7 @@ Estrutura obrigatória:
         ]
 
         resposta = gerar_resposta(modelo, mensagens)
+
         atualizar_ultimo_webdoc(
             tecnologia="linux",
             assunto=comando,
@@ -466,6 +533,11 @@ Estrutura obrigatória:
             conteudo=conteudo_man,
             resposta=resposta,
         )
+
+        salvar = input("\nSalvar explicação em data/linux_docs? (s/n): ").strip().lower()
+
+        if salvar == "s":
+            salvar_man_em_data(comando, resposta)
 
     except Exception as erro:
         print(f"Erro ao consultar man page: {erro}")

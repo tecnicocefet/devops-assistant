@@ -1,71 +1,38 @@
-# mkdir
+## O que o comando faz
+O `mkdir` é um utilitário de linha de comando do Linux usado para criar diretórios. Quando executado, ele cria novos diretórios no sistema de arquivos. Se os diretórios já existirem, o `mkdir` não faz nada e retorna um código de erro.
 
-## O que é
+## Sintaxe básica
+A sintaxe básica do comando é: 
+```bash
+mkdir [opções] diretório1 [diretório2 ...]
+```
 
-O mkdir é um comando no sistema operacional Unix/Linux que cria diretórios (pastas) em seu sistema de arquivos.
+## Principais opções
+Algumas das principais opções incluem:
+- `-m, --mode=MODE`: Define o modo de acesso dos arquivos criados no diretório.
+- `-p, --parents`: Não retorna um erro se os diretórios já existirem. Em vez disso, ele cria qualquer diretório pai necessário com seus modos inalterados por qualquer opção -m.
+- `-v, --verbose`: Imprime uma mensagem para cada diretório criado.
+- `-Z, --context[=CTX]`: Define o contexto de segurança SELinux ou SMACK dos novos diretórios para os valores padrão do tipo, ou se CTX for especificado, define o contexto como CTX.
 
-## Sintaxe
+## Exemplos práticos
+Crie um novo diretório chamado "novo_diretorio" na pasta atual:
+```bash
+mkdir novo_diretorio
+```
 
-mkdir nome_do_diretorio
+Crie uma nova pasta com permissão de acesso especificada (por exemplo, modo 755):
+```bash
+mkdir -m 755 minha_pasta
+```
 
-Essa é a sintaxe básica do comando mkdir para criar um único diretório.
+Crie um novo diretório e seus pais:
+```bash
+mkdir -p pasta/subpasta/subsubpasta
+```
+Este comando criará `pasta`, `subpasta` e `subsubpasta` se eles ainda não existirem.
 
-## Exemplos
-
-### Criar um diretório
-
-mkdir Projetos
-
-Essa linha de comando irá criar uma pasta no seu sistema chamada Projetos.
-
-### Criar vários diretórios ao mesmo tempo
-
-mkdir Pasta1 Pasta2
-
-Esse comando cria duas pastas ao mesmo tempo:
-
-- Pasta1
-- Pasta2
-
-### Criar um diretório dentro do diretório atual
-
-mkdir Documentos
-
-Cria uma pasta chamada Documentos dentro do diretório atual.
-
-### Criar diretórios recursivamente
-
-mkdir -p Pasta1/Pasta2
-
-O parâmetro -p diz ao sistema para criar pastas intermediárias também, caso elas ainda não existam.
-
-Por exemplo, se Pasta1 não existir, o sistema irá criá-la automaticamente antes de criar Pasta2.
-
-## Opções comuns
-
-| opção | descrição |
-| --- | --- |
-| -p | cria diretórios intermediários automaticamente |
-| -v | mostra os diretórios criados |
-| -m | define permissões do diretório |
-| -Z | define contexto de segurança |
-| -i | pede confirmação antes de criar |
-
-1. `-p` cria diretórios intermediários automaticamente
-
-Porém, o `mkdir` também tem outras opções:
-
-1. `-v` ou `--verbose`: Esta opção faz com que o comando mostre mensagens detalhadas sobre o que está a fazer. Por exemplo, se criar um novo diretório, ele irá mostrar uma mensagem indicando isso e o nome do novo diretório.
-
-1. `-m` ou `--mode`: Esta opção permite definir permissões para os novos arquivos criados. Por exemplo, `mkdir -m 755 dirname` irá criar um novo diretório chamado "dirname" com as permissões de leitura e execução para o proprietário, leitura para os membros do grupo e nenhuma permissão para outros.
-
-1. `-Z`: Esta opção permite definir contextos de segurança para novos diretórios. Por exemplo, `mkdir -Z public_rw_t dirname` irá criar um novo diretório chamado "dirname" com o contexto de segurança "public_rw_t".
-
-1. `-d`: Esta opção permite a criação apenas de diretórios, sem fazer nada caso já existam. Por exemplo, `mkdir -p dir1/dir2 && touch dir1/dir2/file` irá criar "dir1" e "dir2", mesmo que eles já existam.
-
-1. `-i`: Esta opção pede uma confirmação antes de criar novos diretórios, caso eles ainda não existam.
-
-## Observações
-
-O mkdir também pode ser usado para criar estruturas completas de diretórios.  
-A opção -p é muito útil quando você precisa criar várias pastas aninhadas de uma só vez.
+Crie um novo diretório definindo o contexto de segurança SELinux para "system_u:object_r:default_t:s0":
+```bash
+mkdir --context="system_u:object_r:default_t:s0" minha_pasta
+```
+Este comando criará `minha_pasta` e definirá o contexto de segurança para esse diretório.
