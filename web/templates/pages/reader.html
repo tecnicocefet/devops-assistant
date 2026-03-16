@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page">
+    <h1>Documentation Reader</h1>
+
+    <div class="reader-box">
+        <h3>Consultar documentação local</h3>
+
+        <form id="doc-form">
+            <input
+                type="text"
+                id="doc-input"
+                name="assunto"
+                placeholder="Exemplo: git/commit ou docker/run"
+                style="width: 100%; padding: 10px; font-size: 17px; box-sizing: border-box;"
+            />
+
+            <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+                <button type="submit" id="doc-run" style="font-size: 17px; padding: 10px 18px;">
+                    Ler documentação
+                </button>
+
+                <button type="button" id="doc-improve" style="font-size: 17px; padding: 10px 18px;">
+                    Melhorar com modelo
+                </button>
+
+                <button type="button" id="doc-save" style="font-size: 17px; padding: 10px 18px;">
+                    Salvar doc
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <hr style="margin:30px 0;">
+
+    <div class="reader-box">
+        <h3>Consultar man page</h3>
+
+        <form id="man-form">
+            <input
+                type="text"
+                id="man-input"
+                name="comando"
+                placeholder="Exemplo: mkdir"
+                style="width: 100%; padding: 10px; font-size: 17px; box-sizing: border-box;"
+            />
+
+            <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+    
+    <button type="submit" id="man-run" style="font-size: 17px; padding: 10px 18px;">
+        Ler man page
+    </button>
+
+    <button type="button" id="man-explain" style="font-size: 17px; padding: 10px 18px;">
+        Explicar com modelo
+    </button>
+
+    <button type="button" id="man-save" style="font-size: 17px; padding: 10px 18px;">
+        Salvar doc
+    </button>
+
+    <button type="button" id="reader-clear" onclick="clearReaderScreen()" style="font-size: 17px; padding: 10px 18px;">
+        Limpar tela
+    </button>
+
+</div>
+        </form>
+    </div>
+
+    <hr style="margin:30px 0;">
+
+    <div
+        id="reader-output"
+        style="
+            margin-top:20px;
+            background:#111;
+            color:#eee;
+            padding:20px;
+            min-height:220px;
+            white-space:pre-wrap;
+            font-family:monospace;
+            font-size:18px;
+            line-height:1.75;
+            border-radius:12px;
+            border:1px solid #334155;
+        "
+    ></div>
+</div>
+
+<script>
+async function consumirStream(url, formData) {
+    const output = document.getElementById("reader-output");
+    output.textContent = "";
+
+    const response = await fetch(url, {
+        method: "POST",
+        body: formData
+    });
+
+    if (!response.body) {
+        output.textContent = "Erro: resposta sem stream.";
+        return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+
+    while (true) {
+        const { value, done } = await reader.read();
+
+        if (done) {
+            break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        output.textContent += chunk;
+    }
+}
+
+document.getElementById("doc-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    const assunto = document.getElementById("doc-input").value.trim();
+
+    if (!assunto) {
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("assunto", assunto);
+
+    await consumirStream("/reader/doc", formData);
+});
+
+document.getElementById("doc-improve").addEventListener("click", async function () {
+    const assunto = document.getElementById("doc-input").value.trim();
+
+    if (!assunto) {
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("assunto", assunto);
+
+    await consumirStream("/reader/doc/improve", formData);
+});
+
+document.getElementById("doc-save").addEventListener("click", async function () {
+
+    const assunto = document.getElementById("doc-input").value.trim();
+    const conteudo = document.getElementById("reader-output").textContent.trim();
+
+    if (!assunto || !conteudo) {
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("assunto", assunto);
+    formData.append("conteudo", conteudo);
+
+    const response = await fetch("/reader/doc/save", {
+        method: "POST",
+        body: formData
+    });
+
+    const data = await response.json();
+
+    if (data.status === "saved") {
+
+        alert("Documento salvo em: " + data.caminho);
+
+    } else if (data.status === "exists") {
+
+        const sobrescrever = confirm(
+            "O arquivo já existe.\n\nDeseja sobrescrever?"
+        );
+
+        if (sobrescrever) {
+
+            const formData2 = new FormData();
+            formData2.append("assunto", assunto);
+            formData2.append("conteudo", conteudo);
+            formData2.append("overwrite", "true");
+
+            const response2 = await fetch("/reader/doc/save", {
+                method: "POST",
+                body: formData2
+            });
+
+            const data2 = await response2.json();
+
+            if (data2.status === "saved") {
+                alert("Documento sobrescrito.");
+            } else {
+                alert("Erro ao sobrescrever documento.");
+            }
+
+        }
+
+    } else {
+
+        alert(data.message || "Erro ao salvar documento.");
+
+    }
+
+});
+document.getElementById("man-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    const comando = document.getElementById("man-input").value.trim();
+
+    if (!comando) {
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("comando", comando);
+
+    await consumirStream("/reader/man", formData);
+});
+
+function clearReaderScreen() {
+
+    const ids = [
+        "chat-box",
+        "result",
+        "output",
+        "reader-output",
+        "man-output",
+        "response-box"
+    ];
+
+    for (const id of ids) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.innerHTML = "";
+        }
+    }
+
+    const inputs = document.querySelectorAll("input");
+
+    inputs.forEach(el => {
+        el.value = "";
+    });
+
+}
+
+document.getElementById("man-save").addEventListener("click", async function () {
+    const comando = document.getElementById("man-input").value.trim();
+    const conteudo = document.getElementById("reader-output").textContent.trim();
+
+    if (!comando || !conteudo) {
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("comando", comando);
+    formData.append("conteudo", conteudo);
+
+    const response = await fetch("/reader/man/save", {
+        method: "POST",
+        body: formData
+    });
+
+    const data = await response.json();
+
+    if (data.status === "saved") {
+        alert("Documento salvo em: " + data.caminho);
+    } else {
+        alert(data.message || "Erro ao salvar documento.");
+    }
+});
+</script>
+{% endblock %}

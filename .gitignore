@@ -8,4 +8,6 @@ __pycache__/
 .env.*
 .vscode/
 .idea/
+
 comandos.md
+contexto.md

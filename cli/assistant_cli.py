@@ -1,18 +1,16 @@
 import os
 import ollama
 
+RESULTADOS_BUSCA = []
+
 from config.settings import DATA_DIR, LABS_DIR, KNOWLEDGE_BASE_DIR, ANALYSIS_DIR
 from modules.doc_reader.reader import ler_arquivo, buscar_na_base, buscar_doc_em_data
 from modules.official_docs.online_reader import buscar_doc_online
+from modules.search_engine.search_engine import buscar_na_base_local
 from modules.man_reader.reader import ler_man_page
-from modules.lab_generator.generator import (
-    gerar_lab,
-    montar_prompt_lab,
-    salvar_lab_arquivo as salvar_lab_arquivo_module,
-)
+from modules.lab_generator.generator import gerar_lab, montar_prompt_lab
 from modules.code_analyzer.analyzer import (
     ler_codigo,
-    analisar_texto,
     analisar_texto_stream,
     corrigir_texto_stream,
 )
@@ -49,7 +47,7 @@ def gerar_resposta(modelo_escolhido, mensagens):
             stream=True,
             options={
                 "temperature": 0.2,
-                "num_predict": 2500,
+                "num_predict": 1400,
             },
         )
 
@@ -176,52 +174,107 @@ def atualizar_ultimo_webdoc(
 
 
 def salvar_lab_arquivo(assunto, conteudo_lab):
-    resultado = salvar_lab_arquivo_module(assunto, conteudo_lab, modo="fail")
+    partes = assunto.split("/", 1)
 
-    if resultado["status"] == "saved":
-        print(f"\nLab salvo em: {resultado['caminho']}\n")
-        return
+    if len(partes) == 2:
+        tecnologia, nome_lab = partes
+        tecnologia = tecnologia.strip().lower()
+        nome_lab = nome_lab.strip().lower()
+    else:
+        tecnologia = "geral"
+        nome_lab = assunto.strip().lower().replace(" ", "-")
 
-    if resultado["status"] == "exists":
-        print(f"\nO lab {resultado['caminho']} já existe.\n")
+    pasta_destino = os.path.join(LABS_DIR, tecnologia)
+    os.makedirs(pasta_destino, exist_ok=True)
+
+    arquivo_destino = os.path.join(pasta_destino, f"{nome_lab}.md")
+
+    if os.path.exists(arquivo_destino):
+        print(f"\nO lab {arquivo_destino} já existe.\n")
         print("1 - Sobrescrever")
         print("2 - Salvar com outro nome")
         print("3 - Cancelar")
 
         escolha = input("\nEscolha uma opção: ").strip()
 
-        if escolha == "1":
-            resultado = salvar_lab_arquivo_module(
-                assunto, conteudo_lab, modo="overwrite"
-            )
-
-            if resultado["status"] == "saved":
-                print(f"\nLab salvo em: {resultado['caminho']}\n")
-            else:
-                print("\nErro ao sobrescrever o lab.\n")
-
+        if escolha == "2":
+            novo_nome = input("Digite o novo nome do lab (sem .md): ").strip().lower()
+            arquivo_destino = os.path.join(pasta_destino, f"{novo_nome}.md")
+        elif escolha != "1":
+            print("Operação cancelada.")
             return
+
+    with open(arquivo_destino, "w", encoding="utf-8") as f:
+        f.write(conteudo_lab)
+
+    print(f"\nLab salvo em: {arquivo_destino}\n")
+
+
+def salvar_lab_arquivo(assunto, conteudo_lab):
+    partes = assunto.split("/", 1)
+
+    if len(partes) == 2:
+        tecnologia, nome_lab = partes
+        tecnologia = tecnologia.strip().lower()
+        nome_lab = nome_lab.strip().lower()
+    else:
+        tecnologia = "geral"
+        nome_lab = assunto.strip().lower().replace(" ", "-")
+
+    pasta_destino = os.path.join(LABS_DIR, tecnologia)
+    os.makedirs(pasta_destino, exist_ok=True)
+
+    arquivo_destino = os.path.join(pasta_destino, f"{nome_lab}.md")
+
+    if os.path.exists(arquivo_destino):
+        print(f"\nO lab {arquivo_destino} já existe.\n")
+        print("1 - Sobrescrever")
+        print("2 - Salvar com outro nome")
+        print("3 - Cancelar")
+
+        escolha = input("\nEscolha uma opção: ").strip()
 
         if escolha == "2":
             novo_nome = input("Digite o novo nome do lab (sem .md): ").strip().lower()
-
-            resultado = salvar_lab_arquivo_module(
-                assunto, conteudo_lab, modo="rename", novo_nome=novo_nome
-            )
-
-            if resultado["status"] == "saved":
-                print(f"\nLab salvo em: {resultado['caminho']}\n")
-            elif resultado["status"] == "exists":
-                print(f"\nJá existe um lab com esse nome: {resultado['caminho']}\n")
-            else:
-                print(f"\nErro: {resultado.get('message', 'erro ao salvar lab')}\n")
-
+            arquivo_destino = os.path.join(pasta_destino, f"{novo_nome}.md")
+        elif escolha != "1":
+            print("Operação cancelada.")
             return
 
-        print("Operação cancelada.")
-        return
+    with open(arquivo_destino, "w", encoding="utf-8") as f:
+        f.write(conteudo_lab)
 
-    print(f"\nErro: {resultado.get('message', 'erro ao salvar lab')}\n")
+    print(f"\nLab salvo em: {arquivo_destino}\n")
+
+
+def salvar_man_em_data(comando, conteudo):
+    pasta_destino = os.path.join(DATA_DIR, "linux_docs")
+    os.makedirs(pasta_destino, exist_ok=True)
+
+    nome_arquivo = comando.strip().lower().replace(" ", "-")
+    arquivo_destino = os.path.join(pasta_destino, f"{nome_arquivo}.md")
+
+    if os.path.exists(arquivo_destino):
+        print(f"\nA documentação {arquivo_destino} já existe.\n")
+        print("1 - Sobrescrever")
+        print("2 - Salvar com outro nome")
+        print("3 - Cancelar")
+
+        escolha = input("\nEscolha uma opção: ").strip()
+
+        if escolha == "2":
+            novo_nome = (
+                input("Digite o novo nome do arquivo (sem .md): ").strip().lower()
+            )
+            arquivo_destino = os.path.join(pasta_destino, f"{novo_nome}.md")
+        elif escolha != "1":
+            print("Operação cancelada.")
+            return
+
+    with open(arquivo_destino, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+
+    print(f"\nDocumentação salva em: {arquivo_destino}\n")
 
 
 def obter_doc_local(comando_doc):
@@ -459,10 +512,12 @@ Explique a man page de forma didática.
 
 REGRAS IMPORTANTES:
 - Responda em português.
-- Use formatação Markdown.
-- Cada seção deve começar em uma nova linha.
-- Sempre deixe uma linha em branco entre seções.
-- Não escreva tudo em um único parágrafo.
+- Use Markdown simples e limpo.
+- Use apenas uma linha em branco entre seções.
+- Não adicione linhas em branco extras.
+- Sempre feche blocos de código Markdown corretamente.
+- Nunca deixe blocos ``` abertos.
+- Não gere blocos de código vazios.
 - Não escreva assinaturas ou despedidas.
 - Não escreva frases como "fim da explicação".
 
@@ -481,6 +536,7 @@ Estrutura obrigatória:
         ]
 
         resposta = gerar_resposta(modelo, mensagens)
+
         atualizar_ultimo_webdoc(
             tecnologia="linux",
             assunto=comando,
@@ -488,6 +544,13 @@ Estrutura obrigatória:
             conteudo=conteudo_man,
             resposta=resposta,
         )
+
+        salvar = (
+            input("\nSalvar explicação em data/linux_docs? (s/n): ").strip().lower()
+        )
+
+        if salvar == "s":
+            salvar_man_em_data(comando, resposta)
 
     except Exception as erro:
         print(f"Erro ao consultar man page: {erro}")
@@ -539,6 +602,37 @@ def processar_refazer(modelo):
 
     resposta = gerar_resposta(modelo, mensagens)
     ULTIMO_WEBDOC["resposta"] = resposta
+
+
+def processar_busca(pergunta):
+    termo = pergunta.replace("buscar:", "").strip()
+
+    if not termo:
+        print("Informe algo para buscar. Exemplo: buscar:docker")
+        return
+
+    print(f"\n[Buscando por: {termo}]\n")
+
+    global RESULTADOS_BUSCA
+    RESULTADOS_BUSCA = buscar_na_base_local(termo)
+    resultados = RESULTADOS_BUSCA
+    
+    
+    if not resultados:
+        print("Nenhum resultado encontrado.\n")
+        return
+
+    print(f"{len(resultados)} resultado(s) encontrado(s):\n")
+
+    for i, r in enumerate(resultados, 1):
+        print(f"{i}. {r['caminho']}")
+
+        if r["trecho"]:
+            print("   --- trecho ---")
+            print("   " + r["trecho"].replace("\n", "\n   "))
+            print()
+
+    print()
 
 
 def processar_lab(pergunta, modelo):
@@ -607,19 +701,45 @@ def processar_analisar(pergunta, modelo):
 
     print(f"\n[Analisando arquivo: {caminho_arquivo}]\n")
 
-    gerou_saida = False
-
     for chunk in analisar_texto_stream(modelo, caminho_arquivo, conteudo_codigo):
-        if not chunk:
-            continue
+        if chunk:
+            print(chunk, end="", flush=True)
 
-        print(chunk, end="", flush=True)
-        gerou_saida = True
+    print()
+    return
 
-    if gerou_saida:
+def processar_abrir(pergunta):
+    global RESULTADOS_BUSCA
+
+    if not RESULTADOS_BUSCA:
+        print("Nenhuma busca recente para abrir.\n")
+        return
+
+    try:
+        numero = int(pergunta.replace("abrir:", "").strip())
+    except ValueError:
+        print("Use: abrir:NUMERO\n")
+        return
+
+    indice = numero - 1
+
+    if indice < 0 or indice >= len(RESULTADOS_BUSCA):
+        print("Número inválido.\n")
+        return
+
+    caminho = RESULTADOS_BUSCA[indice]["caminho"]
+
+    print(f"\n[Abrindo: {caminho}]\n")
+
+    try:
+        with open(caminho, "r", encoding="utf-8") as f:
+            conteudo = f.read()
+
+        print(conteudo)
         print()
-    else:
-        print("Nenhuma resposta foi gerada.")
+
+    except Exception as e:
+        print(f"Erro ao abrir arquivo: {e}\n")
 
 
 def processar_corrigir(pergunta, modelo):
@@ -638,19 +758,12 @@ def processar_corrigir(pergunta, modelo):
 
     print(f"\n[Corrigindo arquivo: {caminho_arquivo}]\n")
 
-    gerou_saida = False
-
     for chunk in corrigir_texto_stream(modelo, caminho_arquivo, conteudo_codigo):
-        if not chunk:
-            continue
+        if chunk:
+            print(chunk, end="", flush=True)
 
-        print(chunk, end="", flush=True)
-        gerou_saida = True
-
-    if gerou_saida:
-        print()
-    else:
-        print("Nenhuma resposta foi gerada.")
+    print()
+    return
 
 
 def processar_pergunta_livre(pergunta, modelo):
@@ -702,6 +815,10 @@ def main():
             listar_labs()
         elif pergunta.lower().startswith("lab:"):
             processar_lab(pergunta, modelo)
+        elif pergunta.lower().startswith("buscar:"):
+            processar_busca(pergunta)
+        elif pergunta.lower().startswith("abrir:"):
+            processar_abrir(pergunta)
         elif pergunta.lower().startswith("analisar:"):
             processar_analisar(pergunta, modelo)
         elif pergunta.lower().startswith("corrigir:"):

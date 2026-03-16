@@ -4,6 +4,8 @@ import subprocess
 import tempfile
 
 import ollama
+from modules.code_analyzer.prompt_rules import montar_regras_analise
+from modules.code_analyzer.post_processing import remover_itens_duplicados
 
 
 def detectar_tipo_arquivo(caminho):
@@ -374,6 +376,30 @@ def _validar_terraform(nome_arquivo, conteudo):
     return _agrupar_resultados(resultados)
 
 
+def formatar_codigo(nome_arquivo, conteudo):
+    tipo = detectar_tipo_arquivo(nome_arquivo)
+
+    if tipo == "generic":
+        tipo = detectar_tipo_por_conteudo(conteudo)
+
+    if tipo == "bash" and shutil.which("shfmt"):
+        try:
+            resultado = subprocess.run(
+                ["shfmt"],
+                input=conteudo,
+                capture_output=True,
+                text=True,
+            )
+
+            if resultado.returncode == 0 and resultado.stdout.strip():
+                return resultado.stdout, "shfmt"
+
+        except Exception:
+            pass
+
+    return conteudo, None
+
+
 def validar_codigo(nome_arquivo, conteudo):
     tipo = detectar_tipo_arquivo(nome_arquivo)
 
@@ -400,40 +426,44 @@ def validar_codigo(nome_arquivo, conteudo):
     return None
 
 
-def montar_prompt_analise_texto(nome_arquivo, conteudo):
-    tipo = detectar_tipo_arquivo(nome_arquivo)
+def montar_prompt_analise_texto(nome_arquivo, conteudo, resultado_validacao=None):
+    regras = montar_regras_analise(nome_arquivo, conteudo, resultado_validacao)
 
-    if tipo == "generic":
-        tipo = detectar_tipo_por_conteudo(conteudo)
+    prompt_usuario = f"""
+{regras}
 
-    linguagem = _bloco_linguagem(tipo)
+Conteúdo do arquivo:
 
-    prompt = (
-        "Você é um assistente técnico de DevOps.\n\n"
-        "Analise o código abaixo e responda de forma clara para um estudante iniciante.\n\n"
-        "Regras:\n"
-        "1. Explique o que o código faz.\n"
-        "2. Aponte problemas ou melhorias importantes.\n"
-        "3. Se fizer sentido, mostre uma versão melhorada.\n"
-        "4. Seja direto e didático.\n"
-        "5. Responda em português.\n\n"
-        "Formato:\n\n"
-        "## Diagnóstico\n\n"
-        "<explicação>\n\n"
-        "## Sugestão\n\n"
-        f"```{linguagem}\n"
-        "<se houver sugestão de melhoria>\n"
-        "```\n\n"
-        f"Tipo detectado: {tipo}\n"
-        f"Nome do arquivo: {nome_arquivo}\n\n"
-        f"Código:\n```{linguagem}\n{conteudo}\n```"
+```text
+{conteudo}
+```
+"""
+
+    if resultado_validacao:
+        prompt_usuario += f"""
+
+Saída dos validadores reais:
+
+```text
+{resultado_validacao}
+```
+"""
+
+    return [
+        {
+            "role": "system",
+            "content": "Você responde em português do Brasil com precisão técnica, objetividade e sem inventar problemas.",
+        },
+        {"role": "user", "content": prompt_usuario},
+    ]
+
+
+def montar_prompt_analise(nome_arquivo, conteudo, resultado_validacao=None):
+    return montar_prompt_analise_texto(
+        nome_arquivo,
+        conteudo,
+        resultado_validacao=resultado_validacao,
     )
-
-    return [{"role": "user", "content": prompt}]
-
-
-def montar_prompt_analise(nome_arquivo, conteudo):
-    return montar_prompt_analise_texto(nome_arquivo, conteudo)
 
 
 def montar_prompt_correcao(nome_arquivo, conteudo):
@@ -635,6 +665,7 @@ def analisar_texto(modelo, nome_arquivo, conteudo):
                 partes.append(chunk)
 
         resposta = "".join(partes).strip()
+        resposta = remover_itens_duplicados(resposta)
 
         if not resposta:
             return None, "Nenhuma resposta foi gerada."
@@ -646,16 +677,27 @@ def analisar_texto(modelo, nome_arquivo, conteudo):
 
 
 def analisar_texto_stream(modelo, nome_arquivo, conteudo):
+    yield "DEBUG 1 entrou em analisar_texto_stream\n"
+
     if not conteudo or not conteudo.strip():
         yield "Conteúdo vazio.\n"
         return
 
     try:
+        yield "DEBUG 2 passou da validação de conteúdo vazio\n"
+
+        conteudo_formatado, formatter_usado = formatar_codigo(nome_arquivo, conteudo)
+        yield "DEBUG 3 passou do formatar_codigo\n"
+
+        if formatter_usado:
+            conteudo = conteudo_formatado
+            yield f"DEBUG 4 formatter usado: {formatter_usado}\n"
+
         resultado_validacao = validar_codigo(nome_arquivo, conteudo)
-        print("DEBUG resultado_validacao =", resultado_validacao)
+        yield f"DEBUG 5 resultado_validacao: {resultado_validacao}\n"
 
         if resultado_validacao is not None:
-            print("DEBUG entrou no stream da validacao")
+            yield "DEBUG 6 entrou no bloco de validacao\n"
 
             for chunk in _stream_resposta_validacao(
                 modelo,
@@ -668,7 +710,13 @@ def analisar_texto_stream(modelo, nome_arquivo, conteudo):
 
             return
 
-        mensagens = montar_prompt_analise_texto(nome_arquivo, conteudo)
+        yield "DEBUG 7 vai para prompt normal com LLM\n"
+
+        mensagens = montar_prompt_analise_texto(
+            nome_arquivo,
+            conteudo,
+            resultado_validacao=resultado_validacao,
+        )
 
         stream = ollama.chat(
             model=modelo,
@@ -688,11 +736,15 @@ def analisar_texto_stream(modelo, nome_arquivo, conteudo):
             },
         )
 
+        yield "DEBUG 8 ollama.chat iniciado\n"
+
         for chunk in stream:
             if "message" in chunk and "content" in chunk["message"]:
                 texto = chunk["message"]["content"]
                 if texto:
                     yield texto
+
+        yield "\nDEBUG 9 fim do stream do ollama\n"
 
     except Exception as exc:
         yield f"Erro ao analisar conteúdo: {exc}\n"
