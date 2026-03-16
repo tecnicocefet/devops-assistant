@@ -1,17 +1,19 @@
 import os
 import ollama
 
+RESULTADOS_BUSCA = []
+
 from config.settings import DATA_DIR, LABS_DIR, KNOWLEDGE_BASE_DIR, ANALYSIS_DIR
 from modules.doc_reader.reader import ler_arquivo, buscar_na_base, buscar_doc_em_data
 from modules.official_docs.online_reader import buscar_doc_online
+from modules.search_engine.search_engine import buscar_na_base_local
 from modules.man_reader.reader import ler_man_page
 from modules.lab_generator.generator import gerar_lab, montar_prompt_lab
 from modules.code_analyzer.analyzer import (
     ler_codigo,
-    montar_prompt_analise,
-    montar_prompt_correcao,
+    analisar_texto_stream,
+    corrigir_texto_stream,
 )
-
 
 MAPA_DOCS = {
     "linux": "linux_docs",
@@ -45,7 +47,7 @@ def gerar_resposta(modelo_escolhido, mensagens):
             stream=True,
             options={
                 "temperature": 0.2,
-                "num_predict": 2500,
+                "num_predict": 1400,
             },
         )
 
@@ -161,7 +163,9 @@ def resolver_caminho_analise(caminho_arquivo):
     return os.path.join(ANALYSIS_DIR, os.path.basename(caminho_arquivo))
 
 
-def atualizar_ultimo_webdoc(tecnologia=None, assunto=None, url=None, conteudo=None, resposta=None):
+def atualizar_ultimo_webdoc(
+    tecnologia=None, assunto=None, url=None, conteudo=None, resposta=None
+):
     ULTIMO_WEBDOC["tecnologia"] = tecnologia
     ULTIMO_WEBDOC["assunto"] = assunto
     ULTIMO_WEBDOC["url"] = url
@@ -204,7 +208,8 @@ def salvar_lab_arquivo(assunto, conteudo_lab):
         f.write(conteudo_lab)
 
     print(f"\nLab salvo em: {arquivo_destino}\n")
-    
+
+
 def salvar_lab_arquivo(assunto, conteudo_lab):
     partes = assunto.split("/", 1)
 
@@ -258,7 +263,9 @@ def salvar_man_em_data(comando, conteudo):
         escolha = input("\nEscolha uma opção: ").strip()
 
         if escolha == "2":
-            novo_nome = input("Digite o novo nome do arquivo (sem .md): ").strip().lower()
+            novo_nome = (
+                input("Digite o novo nome do arquivo (sem .md): ").strip().lower()
+            )
             arquivo_destino = os.path.join(pasta_destino, f"{novo_nome}.md")
         elif escolha != "1":
             print("Operação cancelada.")
@@ -281,7 +288,9 @@ def obter_doc_local(comando_doc):
         arquivo = arquivo.strip().lower()
 
         if tecnologia not in MAPA_DOCS:
-            print("Tecnologia não encontrada. Use: linux, git, docker, terraform, kubernetes ou aws.")
+            print(
+                "Tecnologia não encontrada. Use: linux, git, docker, terraform, kubernetes ou aws."
+            )
             return None, None
 
         base = os.path.join(DATA_DIR, MAPA_DOCS[tecnologia], arquivo)
@@ -327,7 +336,9 @@ def listar_labs():
                 mapa_labs[str(contador)] = f"{tecnologia}/{nome_lab}"
                 contador += 1
 
-    escolha = input("\nDigite o número do lab para abrir ou pressione Enter para sair: ").strip()
+    escolha = input(
+        "\nDigite o número do lab para abrir ou pressione Enter para sair: "
+    ).strip()
 
     if escolha in mapa_labs:
         tecnologia, nome_lab = mapa_labs[escolha].split("/")
@@ -534,7 +545,9 @@ Estrutura obrigatória:
             resposta=resposta,
         )
 
-        salvar = input("\nSalvar explicação em data/linux_docs? (s/n): ").strip().lower()
+        salvar = (
+            input("\nSalvar explicação em data/linux_docs? (s/n): ").strip().lower()
+        )
 
         if salvar == "s":
             salvar_man_em_data(comando, resposta)
@@ -589,6 +602,37 @@ def processar_refazer(modelo):
 
     resposta = gerar_resposta(modelo, mensagens)
     ULTIMO_WEBDOC["resposta"] = resposta
+
+
+def processar_busca(pergunta):
+    termo = pergunta.replace("buscar:", "").strip()
+
+    if not termo:
+        print("Informe algo para buscar. Exemplo: buscar:docker")
+        return
+
+    print(f"\n[Buscando por: {termo}]\n")
+
+    global RESULTADOS_BUSCA
+    RESULTADOS_BUSCA = buscar_na_base_local(termo)
+    resultados = RESULTADOS_BUSCA
+    
+    
+    if not resultados:
+        print("Nenhum resultado encontrado.\n")
+        return
+
+    print(f"{len(resultados)} resultado(s) encontrado(s):\n")
+
+    for i, r in enumerate(resultados, 1):
+        print(f"{i}. {r['caminho']}")
+
+        if r["trecho"]:
+            print("   --- trecho ---")
+            print("   " + r["trecho"].replace("\n", "\n   "))
+            print()
+
+    print()
 
 
 def processar_lab(pergunta, modelo):
@@ -657,8 +701,45 @@ def processar_analisar(pergunta, modelo):
 
     print(f"\n[Analisando arquivo: {caminho_arquivo}]\n")
 
-    mensagens = montar_prompt_analise(caminho_arquivo, conteudo_codigo)
-    gerar_resposta(modelo, mensagens)
+    for chunk in analisar_texto_stream(modelo, caminho_arquivo, conteudo_codigo):
+        if chunk:
+            print(chunk, end="", flush=True)
+
+    print()
+    return
+
+def processar_abrir(pergunta):
+    global RESULTADOS_BUSCA
+
+    if not RESULTADOS_BUSCA:
+        print("Nenhuma busca recente para abrir.\n")
+        return
+
+    try:
+        numero = int(pergunta.replace("abrir:", "").strip())
+    except ValueError:
+        print("Use: abrir:NUMERO\n")
+        return
+
+    indice = numero - 1
+
+    if indice < 0 or indice >= len(RESULTADOS_BUSCA):
+        print("Número inválido.\n")
+        return
+
+    caminho = RESULTADOS_BUSCA[indice]["caminho"]
+
+    print(f"\n[Abrindo: {caminho}]\n")
+
+    try:
+        with open(caminho, "r", encoding="utf-8") as f:
+            conteudo = f.read()
+
+        print(conteudo)
+        print()
+
+    except Exception as e:
+        print(f"Erro ao abrir arquivo: {e}\n")
 
 
 def processar_corrigir(pergunta, modelo):
@@ -677,8 +758,12 @@ def processar_corrigir(pergunta, modelo):
 
     print(f"\n[Corrigindo arquivo: {caminho_arquivo}]\n")
 
-    mensagens = montar_prompt_correcao(caminho_arquivo, conteudo_codigo)
-    gerar_resposta(modelo, mensagens)
+    for chunk in corrigir_texto_stream(modelo, caminho_arquivo, conteudo_codigo):
+        if chunk:
+            print(chunk, end="", flush=True)
+
+    print()
+    return
 
 
 def processar_pergunta_livre(pergunta, modelo):
@@ -730,6 +815,10 @@ def main():
             listar_labs()
         elif pergunta.lower().startswith("lab:"):
             processar_lab(pergunta, modelo)
+        elif pergunta.lower().startswith("buscar:"):
+            processar_busca(pergunta)
+        elif pergunta.lower().startswith("abrir:"):
+            processar_abrir(pergunta)
         elif pergunta.lower().startswith("analisar:"):
             processar_analisar(pergunta, modelo)
         elif pergunta.lower().startswith("corrigir:"):

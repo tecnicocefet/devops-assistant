@@ -5,7 +5,7 @@ def gerar_lab(assunto, buscar_na_base_fn, buscar_doc_em_data_fn):
         return {
             "fonte_tipo": "knowledge-base",
             "fonte_caminho": caminho_base,
-            "conteudo": conteudo_base
+            "conteudo": conteudo_base,
         }
 
     caminho_doc, conteudo_doc = buscar_doc_em_data_fn(assunto)
@@ -14,14 +14,10 @@ def gerar_lab(assunto, buscar_na_base_fn, buscar_doc_em_data_fn):
         return {
             "fonte_tipo": "data",
             "fonte_caminho": caminho_doc,
-            "conteudo": conteudo_doc
+            "conteudo": conteudo_doc,
         }
 
-    return {
-        "fonte_tipo": "assunto",
-        "fonte_caminho": None,
-        "conteudo": assunto
-    }
+    return {"fonte_tipo": "assunto", "fonte_caminho": None, "conteudo": assunto}
 
 
 def montar_prompt_lab(assunto, contexto, fonte_tipo, fonte_caminho=None):
@@ -83,5 +79,5 @@ Contexto:
 
     return [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt}
+        {"role": "user", "content": user_prompt},
     ]

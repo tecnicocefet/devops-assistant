@@ -1,173 +1,66 @@
-# LAB: Criando Diretórios com o comando mkdir
-
-## Objetivo
-
-Este laboratório tem como objetivo ensinar o uso do comando `mkdir` no Linux para criar diretórios (pastas) no sistema de arquivos, incluindo a criação de múltiplos diretórios, diretórios aninhados e o uso de algumas opções úteis do comando.
-
----
-
-## Pré-requisitos
-
-Para realizar este laboratório você precisa de:
-
-- Um sistema Linux ou uma máquina virtual Linux
-- Acesso ao terminal
-- Permissão para criar arquivos e diretórios no seu diretório home
-
----
-
-## Cenário
-
-Você está no seu diretório home (`~`) e deseja organizar uma estrutura de diretórios para seus estudos e projetos.
-
----
-
-## Passos
-
-### 1. Abra o terminal
-
-Abra o terminal do seu sistema Linux.
-
----
-
-### 2. Navegue até o diretório home
-
-Digite:
-
-cd ~
-
-Para confirmar onde você está, execute:
-
-pwd
-
----
-
-### 3. Criar um diretório simples
-
-Crie um diretório chamado **Projetos**:
-
-mkdir Projetos
-
-Verifique se ele foi criado:
-
-ls
-
----
-
-### 4. Criar vários diretórios ao mesmo tempo
-
-Agora crie dois diretórios de uma vez:
-
-mkdir Pasta1 Pasta2
-
-Verifique novamente:
-
-ls
-
-Você deverá ver:
-
-Projetos  
-Pasta1  
-Pasta2  
-
----
-
-### 5. Criar outro diretório no diretório atual
-
-Crie um diretório chamado **Documentos**:
-
-mkdir Documentos
-
-Verifique:
-
-ls
-
----
-
-### 6. Criar diretórios aninhados
-
-Agora vamos criar uma estrutura de diretórios usando a opção `-p`.
-
-Execute:
-
-mkdir -p Estudos/Linux/Comandos
-
-Isso criará automaticamente toda a estrutura:
-
-Estudos  
-└── Linux  
-  └── Comandos  
-
-Para visualizar a estrutura criada você pode usar:
-
-tree
-
-(se o comando `tree` estiver instalado)
-
----
-
-## Explorando opções do mkdir
-
-### 7. Usar a opção `-v` (verbose)
-
-A opção `-v` mostra mensagens informando os diretórios criados.
-
-mkdir -v TesteVerbose
-
-Você verá algo semelhante a:
-
-mkdir: created directory 'TesteVerbose'
-
----
-
-### 8. Usar a opção `-m` (permissões)
-
-A opção `-m` permite definir permissões no momento da criação.
-
-mkdir -m 755 DiretorioPermissoes
-
-Verifique as permissões:
-
-ls -l
-
----
-
-### 9. Usar a opção `-Z` (contexto de segurança SELinux)
-
-Em sistemas que utilizam **SELinux**, a opção `-Z` define o contexto de segurança.
-
-mkdir -Z DiretorioSELinux
-
-> Esta opção funciona corretamente apenas se o SELinux estiver ativo.
-
----
-
-### 10. Usar a opção `-i` (modo interativo)
-
-A opção `-i` pede confirmação antes da criação.
-
-mkdir -i DiretorioInterativo
-
-O sistema perguntará se você realmente deseja criar o diretório.
-
----
-
-## Desafio extra
-
-Crie a seguinte estrutura de diretórios com **um único comando**:
-
-devops  
-└── docker  
-  └── volumes  
-    └── logs  
-
-### Dica
-
-Utilize a opção `-p`.
-
-## Resumo
-
-- Como criar estruturas de diretórios aninhadas
-- Como usar opções importantes como `-p`, `-v`, `-m`, `-Z` e `-i`
-
-Você também terá criado uma pequena estrutura de diretórios para praticar organização de arquivos no Linux.
+## LAB BÁSICO
+### Objetivo
+Criar um novo diretório usando o comando `mkdir` básico.
+
+### Pré-requisitos
+Um ambiente Linux configurado e acessível.
+
+### Cenário
+Você está na sua máquina local e deseja criar um novo diretório chamado "novo_diretorio".
+
+### Passos
+1. Abra o terminal de comando.
+2. Digite `mkdir novo_diretorio` e pressione Enter para criar o diretório.
+3. Verifique se o diretório foi criado digitando `ls` e pressionando Enter. Você deve ver "novo_diretorio" na lista de arquivos/diretórios.
+
+### Desafio extra
+Experimente a opção `-v` para tornar o comando mais informativo, mostrando uma mensagem para cada diretório criado:
+```bash
+mkdir -v novo_diretorio
+```
+
+## LAB INTERMEDIÁRIO
+### Objetivo
+Criar um novo diretório com permissões específicas e verificar a criação do mesmo.
+
+### Pré-requisitos
+Um ambiente Linux configurado e acessível, bem como o conhecimento básico de permissões em sistemas Unix/Linux (modo 755).
+
+### Cenário
+Você está na sua máquina local e deseja criar um novo diretório chamado "minha_pasta" com as permissões de acesso 755.
+
+### Passos
+1. Abra o terminal de comando.
+2. Digite `mkdir -m 755 minha_pasta` e pressione Enter para criar o diretório com as permissões desejadas.
+3. Verifique se o diretório foi criado digitando `ls -l minha_pasta` e pressionando Enter. A saída deve mostrar os detalhes do arquivo, incluindo as permissões (nesse caso, 755).
+
+### Desafio extra
+Experimente a opção `-p` para criar diretórios pais necessários. Por exemplo:
+```bash
+mkdir -p pasta/subpasta/minha_pasta
+```
+Esse comando irá criar "pasta", "subpasta" e "minha_pasta" se eles ainda não existirem.
+
+## LAB AVANÇADO
+### Objetivo
+Criar um novo diretório definindo o contexto de segurança SELinux para uma pasta específica.
+
+### Pré-requisitos
+Um ambiente Linux configurado e acessível, bem como conhecimento básico sobre SELinux e seus contextos.
+
+### Cenário
+Você está na sua máquina local e deseja criar um novo diretório chamado "minha_pasta" com o contexto de segurança definido para uma pasta específica (por exemplo, "system_u:object_r:default_t:s0").
+
+### Passos
+1. Abra o terminal de comando.
+2. Digite `mkdir --context="system_u:object_r:default_t:s0" minha_pasta` e pressione Enter para criar o diretório definindo o contexto de segurança.
+3. Verifique se o diretório foi criado digitando `ls -Z minha_pasta` e pressionando Enter. A saída deve mostrar os detalhes do arquivo, incluindo o contexto de segurança (nesse caso, "system_u:object_r:default_t:s0").
+
+### Desafio extra
+Experimente a opção `-v` para tornar o comando mais informativo, mostrando uma mensagem para cada diretório criado:
+```bash
+mkdir -v --context="system_u:object:default_t:s0" minha_pasta
+```
+Esse comando irá mostrar uma mensagem para cada pasta criada, indicando o contexto de segurança definido.
+
+IMPORTANTE: O conhecimento básico sobre SELinux e seus contextos é necessário para este laboratório avançado. Caso você não saiba o que é um contexto de segurança, recomenda-se estudar esse tópico antes de prosseguir com este laboratório.

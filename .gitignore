@@ -8,4 +8,5 @@ __pycache__/
 .env.*
 .vscode/
 .idea/
-comandos.txt
+comandos.md
+contexto.md
