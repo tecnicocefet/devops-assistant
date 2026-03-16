@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page">
+    <h1>Code Analyzer</h1>
+
+    <form id="analyzer-form">
+        <textarea
+            id="code"
+            name="code"
+            rows="12"
+            placeholder="Cole seu código aqui"
+            style="width: 100%;"
+        ></textarea>
+
+        <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
+            <button type="submit" id="analisar-btn">Analisar</button>
+            <button type="button" id="limpar-btn">Limpar tela</button>
+        </div>
+    </form>
+
+    <div id="status" style="display: none; margin-top: 12px;">
+        Requisição recebida. Analisando...
+    </div>
+
+    <div id="codigo-corrigido-box" style="display: none; margin-top: 20px;">
+        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap;">
+            <h3 style="margin: 0;">Código corrigido</h3>
+            <button type="button" id="copiar-codigo-btn">Copiar código</button>
+            <button type="button" id="fechar-codigo-btn">Fechar</button>
+        </div>
+
+        <div class="message bot">
+            <div class="bubble">
+                <pre><code id="codigo-corrigido-conteudo" class="language-bash"></code></pre>
+            </div>
+        </div>
+    </div>
+
+    <div id="chat-box" class="chat-box" style="margin-top: 20px;"></div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById("analyzer-form");
+    const chatBox = document.getElementById("chat-box");
+    const statusEl = document.getElementById("status");
+    const codeEl = document.getElementById("code");
+
+    const codigoCorrigidoBox = document.getElementById("codigo-corrigido-box");
+    const codigoCorrigidoConteudo = document.getElementById("codigo-corrigido-conteudo");
+    const copiarCodigoBtn = document.getElementById("copiar-codigo-btn");
+    const fecharCodigoBtn = document.getElementById("fechar-codigo-btn");
+    const limparBtn = document.getElementById("limpar-btn");
+
+    let requestEmAndamento = false;
+
+    function createMessage(role, title) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "message " + role;
+
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+
+        const strong = document.createElement("strong");
+        strong.textContent = title;
+
+        const content = document.createElement("pre");
+        content.style.whiteSpace = "pre-wrap";
+        content.style.wordBreak = "break-word";
+        content.style.marginTop = "8px";
+
+        bubble.appendChild(strong);
+        bubble.appendChild(content);
+        wrapper.appendChild(bubble);
+
+        return { wrapper, content };
+    }
+
+    function extrairCodigoCorrigido(texto) {
+        const blocos = texto.match(/```[\w-]*\n[\s\S]*?```/g);
+
+        if (!blocos || blocos.length === 0) {
+            return "";
+        }
+
+        const ultimoBloco = blocos[blocos.length - 1];
+
+        return ultimoBloco
+            .replace(/```[\w-]*\n?/, "")
+            .replace(/```$/, "")
+            .trim();
+    }
+
+    async function executarAnalyzer(url, statusTexto, tituloResposta) {
+        if (requestEmAndamento) {
+            return;
+        }
+
+        const code = codeEl.value;
+
+        if (!code.trim()) {
+            return;
+        }
+
+        requestEmAndamento = true;
+        statusEl.style.display = "block";
+        statusEl.textContent = statusTexto;
+
+        const userMsg = createMessage("user", "Você:");
+        userMsg.content.textContent = code;
+        chatBox.appendChild(userMsg.wrapper);
+
+        const botMsg = createMessage("bot", tituloResposta);
+        chatBox.appendChild(botMsg.wrapper);
+
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        codigoCorrigidoBox.style.display = "none";
+        codigoCorrigidoConteudo.textContent = "";
+
+        try {
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: new URLSearchParams({ code })
+            });
+
+            if (!response.ok) {
+                botMsg.content.textContent = "Erro HTTP: " + response.status;
+                return;
+            }
+
+            if (!response.body) {
+                botMsg.content.textContent = "Erro: resposta sem stream no navegador.";
+                return;
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+
+            let textoCompleto = "";
+
+            while (true) {
+                const { value, done } = await reader.read();
+
+                if (done) {
+                    break;
+                }
+
+                const chunk = decoder.decode(value, { stream: true });
+                textoCompleto += chunk;
+                botMsg.content.textContent = textoCompleto;
+
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+
+            const resto = decoder.decode();
+            if (resto) {
+                textoCompleto += resto;
+                botMsg.content.textContent = textoCompleto;
+            }
+
+            const codigoExtraido = extrairCodigoCorrigido(textoCompleto);
+
+            if (codigoExtraido) {
+                codigoCorrigidoConteudo.textContent = codigoExtraido;
+
+                if (window.hljs) {
+                    hljs.highlightElement(codigoCorrigidoConteudo);
+                }
+
+                codigoCorrigidoBox.style.display = "block";
+            }
+
+        } catch (error) {
+            botMsg.content.textContent = "Erro ao enviar requisição: " + error;
+        } finally {
+            requestEmAndamento = false;
+            statusEl.style.display = "none";
+            statusEl.textContent = "Requisição recebida. Analisando...";
+        }
+    }
+
+    form.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        await executarAnalyzer("/analyzer/run", "Requisição recebida. Analisando...", "Analyzer:");
+    });
+
+    copiarCodigoBtn.addEventListener("click", async function () {
+        const codigo = codigoCorrigidoConteudo.textContent;
+
+        if (!codigo.trim()) {
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(codigo);
+            copiarCodigoBtn.textContent = "Copiado";
+
+            setTimeout(function () {
+                copiarCodigoBtn.textContent = "Copiar código";
+            }, 1500);
+        } catch (error) {
+            copiarCodigoBtn.textContent = "Erro ao copiar";
+
+            setTimeout(function () {
+                copiarCodigoBtn.textContent = "Copiar código";
+            }, 1500);
+        }
+    });
+
+    fecharCodigoBtn.addEventListener("click", function () {
+        codigoCorrigidoBox.style.display = "none";
+        codigoCorrigidoConteudo.textContent = "";
+    });
+
+    limparBtn.addEventListener("click", function () {
+        chatBox.innerHTML = "";
+        codeEl.value = "";
+        codigoCorrigidoConteudo.textContent = "";
+        codigoCorrigidoBox.style.display = "none";
+    });
+});
+</script>
+{% endblock %}
