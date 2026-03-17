@@ -1,5 +1,7 @@
 import os
 import ollama
+import time
+import shutil
 
 RESULTADOS_BUSCA = []
 
@@ -9,6 +11,8 @@ from modules.official_docs.online_reader import buscar_doc_online
 from modules.search_engine.search_engine import buscar_na_base_local
 from modules.man_reader.reader import ler_man_page
 from modules.lab_generator.generator import gerar_lab, montar_prompt_lab
+from modules.playground.service import executar_playground
+from modules.repo_analyzer.service import preparar_readme_repo
 from modules.code_analyzer.analyzer import (
     ler_codigo,
     analisar_texto_stream,
@@ -41,9 +45,24 @@ def limpar_tokens(texto):
 
 def gerar_resposta(modelo_escolhido, mensagens):
     try:
+        mensagens_ajustadas = [
+            {
+                "role": "system",
+                "content": (
+                    "Responda sempre em português do Brasil. "
+                    "Nunca responda em inglês. "
+                    "Se a entrada estiver em inglês, ainda assim responda em português do Brasil. "
+                    "Entregue apenas o conteúdo solicitado pelo usuário."
+                ),
+            }
+        ]
+
+        if mensagens:
+            mensagens_ajustadas.extend(mensagens)
+
         stream = ollama.chat(
             model=modelo_escolhido,
-            messages=mensagens,
+            messages=mensagens_ajustadas,
             stream=True,
             options={
                 "temperature": 0.2,
@@ -102,17 +121,43 @@ def escolher_modelo():
 
 
 def mostrar_comandos():
-    print("Comandos disponíveis:\n")
-    print("analisar:arquivo              → analisar código ou configuração")
-    print("corrigir:arquivo              → corrigir código ou configuração")
-    print("doc:linux/comando             → ler documentação local")
-    print("melhorar doc:linux/comando    → melhorar documentação local")
-    print("webdoc:git/comando            → consultar documentação oficial")
-    print("man:comando                   → consultar man page")
-    print("refazer                       → refazer última explicação oficial")
-    print("salvar base:topico            → salvar conteúdo na knowledge-base")
-    print("lab:linux/comando             → gerar laboratório prático")
-    print("lab:list                      → listar labs salvos\n")
+    comandos = {
+        "Análise": [
+            ("analisar:arquivo", "analisar código ou configuração"),
+            ("corrigir:arquivo", "corrigir código ou configuração"),
+        ],
+        "Documentação": [
+            ("doc:linux/comando", "ler documentação local"),
+            ("melhorar doc:linux/comando", "melhorar documentação local"),
+            ("webdoc:git/comando", "consultar documentação oficial"),
+            ("man:comando", "consultar man page"),
+            ("refazer", "refazer última explicação oficial"),
+            ("salvar base:topico", "salvar conteúdo na knowledge-base"),
+        ],
+        "Labs": [
+            ("lab:linux/comando", "gerar laboratório prático"),
+            ("lab:list", "listar labs salvos"),
+        ],
+        "Busca": [
+            ("buscar:termo", "buscar conteúdo na base local"),
+            ("abrir:numero", "abrir um resultado da última busca"),
+        ],
+        "Playground": [
+            ("play:comando", "executar comando isolado em container"),
+        ],
+        "Repositório": [
+            ("repo:readme caminho", "gerar README sugerido para um repositório"),
+        ],
+    }
+
+    print("\nComandos disponíveis:\n")
+
+    for categoria, lista in comandos.items():
+        print(f"[ {categoria} ]")
+        for comando, descricao in lista:
+            print(f"{comando:<30} → {descricao}")
+        print()
+
     print("Digite sua pergunta ou 'sair' para encerrar\n")
 
 
@@ -493,6 +538,65 @@ Documentação:
     gerar_resposta(modelo, mensagens)
 
 
+def processar_repo_readme(origem: str, modelo: str):
+    import time
+    import shutil
+    import ollama
+
+    from modules.repo_analyzer.service import (
+        preparar_readme_repo,
+        montar_readme_final,
+    )
+
+    resultado = preparar_readme_repo(origem)
+
+    if not resultado["ok"]:
+        print(f"Erro: {resultado['erro']}")
+        return
+
+    prompt = resultado["prompt"]
+    repo_path = resultado["repo_path"]
+    badges = resultado.get("badges", "")
+    temp_dir = resultado.get("temp_dir")
+
+    print("\nDEBUG iniciando ollama.chat...\n")
+
+    inicio_stream = time.time()
+    primeiro_chunk = True
+    partes_resposta = []
+
+    try:
+        stream = ollama.chat(
+            model=modelo,
+            messages=[{"role": "user", "content": prompt}],
+            stream=True,
+        )
+
+        for chunk in stream:
+            content = chunk.get("message", {}).get("content", "")
+
+            if content:
+                if primeiro_chunk:
+                    tempo_primeiro_chunk = time.time() - inicio_stream
+                    print(f"DEBUG tempo até primeiro chunk: {tempo_primeiro_chunk:.2f}s\n")
+                    primeiro_chunk = False
+
+                partes_resposta.append(content)
+
+        conteudo_llm = "".join(partes_resposta).strip()
+
+        readme_final = montar_readme_final(repo_path, conteudo_llm, badges)
+
+        print("\n--- README FINAL ---\n")
+        print(readme_final)
+
+    except Exception as e:
+        print(f"Erro ao gerar README com Ollama: {e}")
+
+    finally:
+        if temp_dir:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
 def processar_man(pergunta, modelo):
     comando = pergunta.replace("man:", "").strip()
 
@@ -616,8 +720,7 @@ def processar_busca(pergunta):
     global RESULTADOS_BUSCA
     RESULTADOS_BUSCA = buscar_na_base_local(termo)
     resultados = RESULTADOS_BUSCA
-    
-    
+
     if not resultados:
         print("Nenhum resultado encontrado.\n")
         return
@@ -708,6 +811,7 @@ def processar_analisar(pergunta, modelo):
     print()
     return
 
+
 def processar_abrir(pergunta):
     global RESULTADOS_BUSCA
 
@@ -782,6 +886,27 @@ def processar_pergunta_livre(pergunta, modelo):
     gerar_resposta(modelo, mensagens)
 
 
+def processar_playground(pergunta):
+    comando = pergunta.split(":", 1)[1].strip()
+
+    if not comando:
+        print("Informe um comando para executar.")
+        return
+
+    resultado = executar_playground(comando)
+
+    print("\n--- Playground ---\n")
+
+    if resultado["stdout"]:
+        print(resultado["stdout"])
+
+    if resultado["stderr"]:
+        print("\nErro:")
+        print(resultado["stderr"])
+
+    print(f"\nExit code: {resultado['exit_code']}\n")
+
+
 def main():
     modelo = escolher_modelo()
     mostrar_comandos()
@@ -823,6 +948,16 @@ def main():
             processar_analisar(pergunta, modelo)
         elif pergunta.lower().startswith("corrigir:"):
             processar_corrigir(pergunta, modelo)
+        elif pergunta.lower().startswith("play:"):
+            processar_playground(pergunta)
+        elif pergunta.lower().startswith("repo:readme"):
+            origem = pergunta[len("repo:readme"):].strip()
+
+            if not origem:
+                print("Erro: informe um caminho local ou uma URL GitHub.")
+                continue
+
+            processar_repo_readme(origem, modelo)
         else:
             processar_pergunta_livre(pergunta, modelo)
 
